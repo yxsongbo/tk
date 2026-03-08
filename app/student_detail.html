@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生答题详情 - 练习系统</title>
+    <link rel="stylesheet" href="/xx/styles.css">
+    <style>
+        /* 定制样式 - 覆盖一些特殊需求 */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--white);
+            padding: var(--space-6) 0;
+            border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+            opacity: 0.1;
+        }
+        
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: var(--space-3) var(--space-5);
+            background: var(--info-color);
+            color: var(--white);
+            text-decoration: none;
+            border-radius: var(--border-radius-md);
+            margin-bottom: var(--space-4);
+            transition: all var(--transition-fast) ease;
+            font-weight: 500;
+        }
+        
+        .back-btn:hover {
+            background: #1976d2;
+            transform: translateX(-2px);
+        }
+        
+        .back-btn i {
+            margin-right: var(--space-2);
+            font-size: var(--font-size-lg);
+        }
+        
+        .panel {
+            background: var(--white);
+            padding: var(--space-5);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-md);
+            margin-bottom: var(--space-4);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .panel:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .panel h2 {
+            margin-bottom: var(--space-4);
+            color: var(--gray-800);
+            border-bottom: 2px solid var(--gray-200);
+            padding-bottom: var(--space-3);
+            font-size: var(--font-size-2xl);
+            font-weight: 600;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--white);
+            padding: var(--space-4);
+            border-radius: var(--border-radius-md);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-fast) ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left var(--transition-normal) ease;
+        }
+        
+        .stat-card:hover::before {
+            left: 100%;
+        }
+        
+        .stat-number {
+            font-size: var(--font-size-4xl);
+            font-weight: 700;
+            margin-bottom: var(--space-2);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .stat-label {
+            font-size: var(--font-size-sm);
+            opacity: 0.9;
+            font-weight: 500;
+        }
+        
+        .student-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--space-4);
+            padding-bottom: var(--space-4);
+            border-bottom: 1px solid var(--gray-200);
+        }
+        
+        .student-avatar {
+            width: var(--space-15);
+            height: var(--space-15);
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-weight: 700;
+            margin-right: var(--space-4);
+        }
+        
+        .student-details h3 {
+            color: var(--gray-800);
+            margin-bottom: var(--space-2);
+        }
+        
+        .student-details .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--space-2);
+        }
+        
+        .info-label {
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+        
+        .info-value {
+            color: var(--gray-800);
+            font-weight: 600;
+        }
+        
+        .answers-list {
+            background: var(--gray-50);
+            padding: var(--space-4);
+            border-radius: var(--border-radius-md);
+            margin-top: var(--space-4);
+        }
+        
+        .answer-item {
+            display: flex;
+            align-items: center;
+            padding: var(--space-3);
+            background: var(--white);
+            border-radius: var(--border-radius-sm);
+            margin-bottom: var(--space-2);
+            border-left: 4px solid transparent;
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .answer-item:hover {
+            transform: translateX(4px);
+        }
+        
+        .answer-item.correct {
+            border-left-color: var(--success-color);
+            background: rgba(76, 175, 80, 0.1);
+        }
+        
+        .answer-item.incorrect {
+            border-left-color: var(--error-color);
+            background: rgba(244, 67, 54, 0.1);
+        }
+        
+        .answer-status {
+            width: var(--space-5);
+            height: var(--space-5);
+            border-radius: 50%;
+            margin-right: var(--space-3);
+        }
+        
+        .answer-status.correct {
+            background: var(--success-color);
+        }
+        
+        .answer-status.incorrect {
+            background: var(--error-color);
+        }
+        
+        .answer-content {
+            flex: 1;
+            color: var(--gray-800);
+        }
+        
+        .answer-time {
+            color: var(--gray-600);
+            font-size: var(--font-size-sm);
+        }
+        
+        .performance-summary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: var(--white);
+            padding: var(--space-5);
+            border-radius: var(--border-radius-lg);
+            text-align: center;
+            margin-bottom: var(--space-4);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .performance-summary h3 {
+            font-size: var(--font-size-2xl);
+            margin-bottom: var(--space-2);
+        }
+        
+        .performance-summary .score {
+            font-size: var(--font-size-4xl);
+            font-weight: 700;
+            margin-bottom: var(--space-2);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .performance-summary .message {
+            font-size: var(--font-size-lg);
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        .btn-export {
+            background: var(--success-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-export:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+        
+        .btn-print {
+            background: var(--info-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-print:hover {
+            background: #1976d2;
+            transform: translateY(-1px);
+        }
+        
+        .btn-delete {
+            background: var(--error-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-delete:hover {
+            background: #d32f2f;
+            transform: translateY(-1px);
+        }
+        
+        .btn-edit {
+            background: var(--warning-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-edit:hover {
+            background: #e68900;
+            transform: translateY(-1px);
+        }
+        
+        .btn-detail {
+            background: var(--primary-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-detail:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        
+        .btn-action {
+            background: var(--gray-200);
+            color: var(--gray-600);
+            border: none;
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            font-size: var(--font-size-xs);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-action:hover {
+            background: var(--gray-300);
+            color: var(--gray-800);
+            transform: translateY(-1px);
+        }
+        
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: var(--white);
+            padding: var(--space-3);
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: var(--space-4);
+        }
+        
+        .search-box input {
+            border: none;
+            outline: none;
+            flex: 1;
+            padding: var(--space-2);
+            background: transparent;
+            font-size: var(--font-size-base);
+        }
+        
+        .search-box button {
+            background: var(--gray-200);
+            border: none;
+            padding: var(--space-2);
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .search-box button:hover {
+            background: var(--gray-300);
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: var(--space-6);
+            color: var(--gray-400);
+        }
+        
+        .no-data i {
+            font-size: var(--font-size-5xl);
+            margin-bottom: var(--space-3);
+        }
+        
+        .no-data p {
+            font-size: var(--font-size-lg);
+            font-weight: 300;
+        }
+        
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: var(--gray-300) var(--gray-100);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: var(--gray-100);
+            border-radius: var(--border-radius-sm);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: var(--gray-300);
+            border-radius: var(--border-radius-sm);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: var(--gray-400);
+        }
+        
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        .animate-fadeIn {
+            animation: fadeIn var(--transition-normal) ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-slideUp {
+            animation: slideUp var(--transition-normal) ease-out;
+        }
+        
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
+            }
+            to {
+                box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+            }
+        }
+        
+        .animate-glow {
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        .animate-bounce {
+            animation: bounce 2s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--space-4);
+            }
+            
+            .header h1 {
+                font-size: var(--font-size-3xl);
+            }
+            
+            .student-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .student-details {
+                margin-top: var(--space-3);
+            }
+            
+            .modal-content {
+                margin: var(--space-4);
+                max-width: none;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: var(--space-3);
+            }
+            
+            .header {
+                padding: var(--space-4) 0;
+            }
+            
+            .header h1 {
+                font-size: var(--font-size-2xl);
+            }
+            
+            .student-avatar {
+                width: var(--space-10);
+                height: var(--space-10);
+            }
+            
+            .answer-item {
+                padding: var(--space-2);
+            }
+            
+            .btn-action {
+                padding: var(--space-1) var(--space-1);
+                font-size: var(--font-size-xxs);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/xx/js" class="back-btn">← 返回教师面板</a>
+
+        <div class="header">
+            <h1 id="studentName">学生答题详情</h1>
+            <p id="studentInfo"></p>
+        </div>
+
+        <div class="panel">
+            <h2>📊 答题统计</h2>
+            <div class="stats-grid" id="statsGrid">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>📝 答题记录</h2>
+            <div id="answersContainer">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/xx/api';
+
+        // 获取URL参数
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        const studentId = parseInt(getQueryParam('id'));
+
+        async function loadStudentDetail() {
+            try {
+                const response = await fetch(`${API_BASE}/analysis/student/${studentId}`);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        document.getElementById('answersContainer').innerHTML = '<div class="no-data">未找到该学生信息</div>';
+                        document.getElementById('statsGrid').innerHTML = '<div class="no-data">无统计数据</div>';
+                    } else {
+                        throw new Error('加载失败');
+                    }
+                    return;
+                }
+
+                const data = await response.json();
+                renderStudentInfo(data.student);
+                renderStatistics(data.statistics);
+                renderAnswers(data.answers);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('answersContainer').innerHTML = '<div class="no-data">加载失败，请重试</div>';
+                document.getElementById('statsGrid').innerHTML = '<div class="no-data">--</div>';
+            }
+        }
+
+        function renderStudentInfo(student) {
+            document.getElementById('studentName').textContent = student.name + ' 的答题详情';
+            document.getElementById('studentInfo').textContent =
+                `准考证号: ${student.exam_number} | 班级: ${student['class']}班`;
+        }
+
+        function renderStatistics(stats) {
+            const totalAnswered = stats.total_answered || 0;
+            const correctCount = stats.correct_count || 0;
+            const totalScore = stats.total_score ? parseFloat(stats.total_score).toFixed(1) : 0;
+            const correctRate = totalAnswered > 0
+                ? Math.round(100 * correctCount / totalAnswered)
+                : 0;
+            const avgTime = stats.avg_time ? Math.round(stats.avg_time) + '秒' : '--';
+
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${totalAnswered}</div>
+                    <div class="stat-label">答题总数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${correctCount}</div>
+                    <div class="stat-label">答对题数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${totalScore}</div>
+                    <div class="stat-label">总得分</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${correctRate}%</div>
+                    <div class="stat-label">正确率</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${avgTime}</div>
+                    <div class="stat-label">平均用时</div>
+                </div>
+            `;
+        }
+
+        function renderAnswers(answers) {
+            const container = document.getElementById('answersContainer');
+
+            if (!answers || answers.length === 0) {
+                container.innerHTML = '<div class="no-data">该学生尚未答题</div>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>题号</th>
+                        <th>题目</th>
+                        <th>你的答案</th>
+                        <th>正确答案</th>
+                        <th>得分</th>
+                        <th>用时</th>
+                        <th>结果</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+
+            const tbody = table.querySelector('tbody');
+            answers.forEach((answer, index) => {
+                const tr = document.createElement('tr');
+                const isCorrect = answer.is_correct;
+                const resultClass = isCorrect ? 'correct' : 'wrong';
+                const resultText = isCorrect ? '✓ 正确' : '✗ 错误';
+
+                // 尝试获取题目选项（需要额外API调用，这里简化显示）
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td class="question-text">${escapeHtml(answer.question || answer.id)}</td>
+                    <td>${escapeHtml(String(answer.answer))}</td>
+                    <td>${answer.correct_answer || '--'}</td>
+                    <td>${answer.score || 0}</td>
+                    <td>${answer.answer_time || '--'}秒</td>
+                    <td class="${resultClass}">${resultText}</td>
+                </tr>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            container.innerHTML = '';
+            container.appendChild(table);
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 页面加载
+        window.onload = loadStudentDetail;
+    </script>
+</body>
+</html>

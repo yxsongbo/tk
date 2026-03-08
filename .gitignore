@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Local database / data
+practice.db
+*.sqlite
+*.sqlite3
+student.xlsx
+
+# Secrets / keys
+*.pem
+*.key
+.env
+.env.*
+
+# Logs
+*.log
+server.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Build / cache
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/

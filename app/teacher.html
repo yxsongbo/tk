@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教师分析面板 - 练习系统</title>
+    <link rel="stylesheet" href="/xx/styles.css">
+    <style>
+        /* 定制样式 - 覆盖一些特殊需求 */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--white);
+            padding: var(--space-6) 0;
+            border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+            opacity: 0.1;
+        }
+        
+        .panel {
+            background: var(--white);
+            padding: var(--space-5);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-md);
+            margin-bottom: var(--space-4);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .panel:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .panel h2 {
+            margin-bottom: var(--space-4);
+            color: var(--gray-800);
+            border-bottom: 2px solid var(--gray-200);
+            padding-bottom: var(--space-3);
+            font-size: var(--font-size-2xl);
+            font-weight: 600;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--white);
+            padding: var(--space-4);
+            border-radius: var(--border-radius-md);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-fast) ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left var(--transition-normal) ease;
+        }
+        
+        .stat-card:hover::before {
+            left: 100%;
+        }
+        
+        .stat-number {
+            font-size: var(--font-size-4xl);
+            font-weight: 700;
+            margin-bottom: var(--space-2);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .stat-label {
+            font-size: var(--font-size-sm);
+            opacity: 0.9;
+            font-weight: 500;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid var(--gray-200);
+            margin-bottom: var(--space-4);
+        }
+        
+        .tab {
+            padding: var(--space-4);
+            border: none;
+            background: none;
+            color: var(--gray-600);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all var(--transition-fast) ease;
+            margin-bottom: -2px;
+            flex: 1;
+            text-align: center;
+        }
+        
+        .tab:hover {
+            color: var(--gray-800);
+            background: var(--gray-50);
+        }
+        
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .question-analysis {
+            background: var(--white);
+            padding: var(--space-5);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-md);
+            margin-bottom: var(--space-4);
+        }
+        
+        .question-item {
+            background: var(--gray-50);
+            padding: var(--space-4);
+            border-radius: var(--border-radius-md);
+            margin-bottom: var(--space-3);
+            border-left: 4px solid var(--primary-color);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .question-item:hover {
+            background: var(--gray-100);
+            transform: translateY(-2px);
+        }
+        
+        .question-item h3 {
+            color: var(--gray-800);
+            margin-bottom: var(--space-3);
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+        }
+        
+        .question-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: var(--space-3);
+        }
+        
+        .stat-bar {
+            width: 100%;
+            height: var(--space-2);
+            background: var(--gray-200);
+            border-radius: var(--border-radius-sm);
+            margin: var(--space-2) 0;
+        }
+        
+        .stat-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            border-radius: var(--border-radius-sm);
+            transition: width var(--transition-normal) ease;
+        }
+        
+        .student-table {
+            width: 100%;
+            background: var(--white);
+            border-radius: var(--border-radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+        }
+        
+        .student-table thead {
+            background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+            border-bottom: 2px solid var(--gray-200);
+        }
+        
+        .student-table th {
+            padding: var(--space-4);
+            text-align: left;
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: var(--font-size-sm);
+        }
+        
+        .student-table td {
+            padding: var(--space-3) var(--space-4);
+            border-bottom: 1px solid var(--gray-100);
+        }
+        
+        .student-table tbody tr:hover {
+            background: var(--gray-50);
+        }
+        
+        .student-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .overview-chart {
+            background: var(--white);
+            padding: var(--space-5);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-md);
+            margin-bottom: var(--space-4);
+        }
+        
+        .chart-title {
+            margin-bottom: var(--space-4);
+            color: var(--gray-800);
+            font-size: var(--font-size-2xl);
+            font-weight: 600;
+        }
+        
+        .chart-area {
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gray-50);
+            border-radius: var(--border-radius-md);
+            padding: var(--space-6);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: var(--space-5);
+            height: var(--space-5);
+            border: 3px solid var(--gray-200);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        .btn-refresh {
+            background: var(--info-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            margin-left: var(--space-3);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-refresh:hover {
+            background: #1976d2;
+            transform: translateY(-1px);
+        }
+        
+        .alert {
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--border-radius-md);
+            margin-bottom: var(--space-4);
+        }
+        
+        .alert-info {
+            background: rgba(33, 150, 243, 0.1);
+            color: var(--info-color);
+            border: 1px solid rgba(33, 150, 243, 0.2);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-6);
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--white);
+            padding: var(--space-6);
+            border-radius: var(--border-radius-lg);
+            max-width: 600px;
+            width: 100%;
+            box-shadow: var(--shadow-xl);
+            transform: scale(0.9);
+            transition: all var(--transition-normal) ease;
+        }
+        
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-4);
+        }
+        
+        .modal-header h2 {
+            font-size: var(--font-size-2xl);
+            color: var(--gray-800);
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: var(--font-size-2xl);
+            cursor: pointer;
+            color: var(--gray-400);
+            padding: var(--space-1);
+            border-radius: var(--border-radius-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .modal-close:hover {
+            background: var(--gray-100);
+            color: var(--gray-600);
+        }
+        
+        .modal-body {
+            padding: var(--space-4);
+        }
+        
+        .modal-footer {
+            padding: var(--space-4);
+            border-top: 1px solid var(--gray-200);
+            background: var(--gray-50);
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-3);
+        }
+        
+        .student-detail {
+            background: var(--white);
+            padding: var(--space-5);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-md);
+            margin-bottom: var(--space-4);
+        }
+        
+        .student-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--space-4);
+            padding-bottom: var(--space-4);
+            border-bottom: 1px solid var(--gray-200);
+        }
+        
+        .student-avatar {
+            width: var(--space-15);
+            height: var(--space-15);
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-weight: 700;
+            margin-right: var(--space-4);
+        }
+        
+        .student-details h3 {
+            color: var(--gray-800);
+            margin-bottom: var(--space-2);
+        }
+        
+        .student-details .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--space-2);
+        }
+        
+        .info-label {
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+        
+        .info-value {
+            color: var(--gray-800);
+            font-weight: 600;
+        }
+        
+        .answers-list {
+            background: var(--gray-50);
+            padding: var(--space-4);
+            border-radius: var(--border-radius-md);
+            margin-top: var(--space-4);
+        }
+        
+        .answer-item {
+            display: flex;
+            align-items: center;
+            padding: var(--space-3);
+            background: var(--white);
+            border-radius: var(--border-radius-sm);
+            margin-bottom: var(--space-2);
+            border-left: 4px solid transparent;
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .answer-item:hover {
+            transform: translateX(4px);
+        }
+        
+        .answer-item.correct {
+            border-left-color: var(--success-color);
+            background: rgba(76, 175, 80, 0.1);
+        }
+        
+        .answer-item.incorrect {
+            border-left-color: var(--error-color);
+            background: rgba(244, 67, 54, 0.1);
+        }
+        
+        .answer-status {
+            width: var(--space-5);
+            height: var(--space-5);
+            border-radius: 50%;
+            margin-right: var(--space-3);
+        }
+        
+        .answer-status.correct {
+            background: var(--success-color);
+        }
+        
+        .answer-status.incorrect {
+            background: var(--error-color);
+        }
+        
+        .answer-content {
+            flex: 1;
+            color: var(--gray-800);
+        }
+        
+        .answer-time {
+            color: var(--gray-600);
+            font-size: var(--font-size-sm);
+        }
+        
+        .performance-summary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: var(--white);
+            padding: var(--space-5);
+            border-radius: var(--border-radius-lg);
+            text-align: center;
+            margin-bottom: var(--space-4);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .performance-summary h3 {
+            font-size: var(--font-size-2xl);
+            margin-bottom: var(--space-2);
+        }
+        
+        .performance-summary .score {
+            font-size: var(--font-size-4xl);
+            font-weight: 700;
+            margin-bottom: var(--space-2);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .performance-summary .message {
+            font-size: var(--font-size-lg);
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        .btn-export {
+            background: var(--success-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-export:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+        
+        .btn-print {
+            background: var(--info-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-print:hover {
+            background: #1976d2;
+            transform: translateY(-1px);
+        }
+        
+        .btn-delete {
+            background: var(--error-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-delete:hover {
+            background: #d32f2f;
+            transform: translateY(-1px);
+        }
+        
+        .btn-edit {
+            background: var(--warning-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-edit:hover {
+            background: #e68900;
+            transform: translateY(-1px);
+        }
+        
+        .btn-detail {
+            background: var(--primary-color);
+            color: var(--white);
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-detail:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        
+        .btn-action {
+            background: var(--gray-200);
+            color: var(--gray-600);
+            border: none;
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            font-size: var(--font-size-xs);
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .btn-action:hover {
+            background: var(--gray-300);
+            color: var(--gray-800);
+            transform: translateY(-1px);
+        }
+        
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: var(--white);
+            padding: var(--space-3);
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: var(--space-4);
+        }
+        
+        .search-box input {
+            border: none;
+            outline: none;
+            flex: 1;
+            padding: var(--space-2);
+            background: transparent;
+            font-size: var(--font-size-base);
+        }
+        
+        .search-box button {
+            background: var(--gray-200);
+            border: none;
+            padding: var(--space-2);
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast) ease;
+        }
+        
+        .search-box button:hover {
+            background: var(--gray-300);
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: var(--space-6);
+            color: var(--gray-400);
+        }
+        
+        .no-data i {
+            font-size: var(--font-size-5xl);
+            margin-bottom: var(--space-3);
+        }
+        
+        .no-data p {
+            font-size: var(--font-size-lg);
+            font-weight: 300;
+        }
+        
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: var(--gray-300) var(--gray-100);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: var(--gray-100);
+            border-radius: var(--border-radius-sm);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: var(--gray-300);
+            border-radius: var(--border-radius-sm);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: var(--gray-400);
+        }
+        
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        .animate-fadeIn {
+            animation: fadeIn var(--transition-normal) ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-slideUp {
+            animation: slideUp var(--transition-normal) ease-out;
+        }
+        
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
+            }
+            to {
+                box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+            }
+        }
+        
+        .animate-glow {
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        .animate-bounce {
+            animation: bounce 2s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--space-4);
+            }
+            
+            .header h1 {
+                font-size: var(--font-size-3xl);
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                text-align: left;
+            }
+            
+            .question-analysis {
+                padding: var(--space-4);
+            }
+            
+            .student-table {
+                font-size: var(--font-size-xs);
+            }
+            
+            .student-table th,
+            .student-table td {
+                padding: var(--space-2);
+            }
+            
+            .modal-content {
+                margin: var(--space-4);
+                max-width: none;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: var(--space-3);
+            }
+            
+            .header {
+                padding: var(--space-4) 0;
+            }
+            
+            .header h1 {
+                font-size: var(--font-size-2xl);
+            }
+            
+            .stat-card {
+                margin-bottom: var(--space-3);
+            }
+            
+            .tab {
+                padding: var(--space-3);
+            }
+            
+            .question-item {
+                padding: var(--space-3);
+            }
+            
+            .student-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .student-details {
+                margin-top: var(--space-3);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 教师分析面板</h1>
+            <p>实时监控学生答题情况 | 题目分析 | 成绩统计</p>
+        </div>
+        
+        <!-- 试卷选择 -->
+        <div class="panel" style="background: #e8f4ff; border: 2px solid #2196F3;">
+            <h2>📚 当前试卷</h2>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <select id="examSelect" style="padding: 10px; font-size: 16px; border-radius: 5px; min-width: 300px;">
+                    <option value="">加载中...</option>
+                </select>
+                <button onclick="switchExam()" style="padding: 10px 20px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">切换试卷</button>
+                <button onclick="importExam()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">导入新试卷</button>
+            </div>
+            <p id="examInfo" style="margin-top: 10px; color: #666;"></p>
+        </div>
+        
+        <!-- 总体统计 -->
+        <div class="panel">
+            <h2>📈 总体概况</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalStudents">0</div>
+                    <div class="stat-label">参与学生数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalAnswers">0</div>
+                    <div class="stat-label">答题总次数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgRate">0%</div>
+                    <div class="stat-label">平均正确率</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeSessions">0</div>
+                    <div class="stat-label">正在练习</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 选项卡 -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('question')">题目分析</div>
+            <div class="tab" onclick="switchTab('student')">学生分析</div>
+            <div class="tab" onclick="switchTab('overview')">题目概览</div>
+        </div>
+        
+        <!-- 题目分析 -->
+        <div id="questionTab" class="tab-content active">
+            <div class="panel">
+                <h2>📝 单题分析</h2>
+                <div class="question-selector">
+                    <select id="questionSelect" onchange="loadQuestionAnalysis()">
+                        <option value="">请选择题目</option>
+                    </select>
+                </div>
+                
+                <div id="questionDetail" style="display: none;">
+                    <div class="question-content" id="questionText"></div>
+                    
+                    <div style="margin: 20px 0;">
+                        <h3>答题统计</h3>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 15px 0;">
+                            <div class="stat-card" style="background: #17a2b8;">
+                                <div class="stat-value" id="qTotal">0</div>
+                                <div class="stat-label">答题人数</div>
+                            </div>
+                            <div class="stat-card" style="background: #28a745;">
+                                <div class="stat-value" id="qCorrect">0</div>
+                                <div class="stat-label">正确人数</div>
+                            </div>
+                            <div class="stat-card" style="background: #dc3545;">
+                                <div class="stat-value" id="qWrong">0</div>
+                                <div class="stat-label">错误人数</div>
+                            </div>
+                            <div class="stat-card" style="background: #ffc107; color: #333;">
+                                <div class="stat-value" id="qRate">0%</div>
+                                <div class="stat-label">正确率</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="optionDistribution" style="margin: 20px 0;">
+                        <h3>选项分布</h3>
+                    </div>
+                    
+                    <h3>学生答题详情</h3>
+                    <div class="filter-group">
+                        <select id="classFilter" onchange="filterAnswers()">
+                            <option value="">所有班级</option>
+                        </select>
+                        <select id="resultFilter" onchange="filterAnswers()">
+                            <option value="">所有结果</option>
+                            <option value="correct">正确</option>
+                            <option value="wrong">错误</option>
+                        </select>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>序号</th>
+                                <th>班级</th>
+                                <th>学号</th>
+                                <th>姓名</th>
+                                <th>答案</th>
+                                <th>结果</th>
+                                <th>用时(秒)</th>
+                                <th>答题时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="answersTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 学生分析 -->
+        <div id="studentTab" class="tab-content">
+            <div class="panel">
+                <h2>👨‍🎓 学生分析</h2>
+                <div class="filter-group">
+                    <select id="studentClassFilter" onchange="loadStudents()">
+                        <option value="">所有班级</option>
+                    </select>
+                    <input type="text" id="studentSearch" placeholder="搜索姓名" onkeyup="loadStudents()">
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>班级</th>
+                            <th>学号</th>
+                            <th>姓名</th>
+                            <th>答题数</th>
+                            <th>正确数</th>
+                            <th>得分</th>
+                            <th>正确率</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTable"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 题目概览 -->
+        <div id="overviewTab" class="tab-content">
+            <div class="panel">
+                <h2>📋 题目正确率排行</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>排名</th>
+                            <th>题目ID</th>
+                            <th>类型</th>
+                            <th>内容预览</th>
+                            <th>答题次数</th>
+                            <th>正确次数</th>
+                            <th>正确率</th>
+                            <th>难度</th>
+                        </tr>
+                    </thead>
+                    <tbody id="overviewTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/xx/api';
+        let currentQuestionData = null;
+        let allStudents = [];
+        let allQuestions = [];
+
+        // 初始化
+        async function init() {
+            await loadExams();
+            await loadOverview();
+            await loadQuestions();
+            await loadClasses();
+        }
+
+        // 加载试卷列表
+        async function loadExams() {
+            try {
+                const [examsRes, currentRes] = await Promise.all([
+                    fetch(`${API_BASE}/exams/list`),
+                    fetch(`${API_BASE}/exams/current`)
+                ]);
+                
+                const exams = await examsRes.json();
+                const current = await currentRes.json();
+                
+                const select = document.getElementById('examSelect');
+                select.innerHTML = '';
+                
+                if (exams.length === 0) {
+                    select.innerHTML = '<option value="">暂无试卷</option>';
+                    return;
+                }
+                
+                exams.forEach(exam => {
+                    const option = document.createElement('option');
+                    option.value = exam.filename;
+                    option.textContent = `${exam.title} (${exam.question_count}题)`;
+                    if (exam.filename === current.current_exam) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                
+                document.getElementById('examInfo').textContent = 
+                    `当前使用: ${current.current_exam || '未设置'}`;
+            } catch (error) {
+                console.error('加载试卷失败:', error);
+            }
+        }
+
+        // 执行试卷切换
+        async function switchExamByFilename(filename) {
+            const response = await fetch(`${API_BASE}/exams/switch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename })
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.detail || result.message || '切换失败');
+            }
+            return result;
+        }
+
+        // 切换试卷
+        async function switchExam() {
+            const select = document.getElementById('examSelect');
+            const filename = select.value;
+            
+            if (!filename) {
+                alert('请选择试卷');
+                return;
+            }
+            
+            if (!confirm(`确定要切换到试卷 "${filename}" 吗？如有正在考试的会话将自动结束。`)) {
+                return;
+            }
+            
+            try {
+                const result = await switchExamByFilename(filename);
+                const abandoned = result.abandoned_sessions || 0;
+                const extra = abandoned > 0 ? `，已结束 ${abandoned} 个进行中的会话` : '';
+                alert(`${result.message || '切换成功'}，共 ${result.question_count || 0} 题${extra}`);
+                await loadExams();
+                await loadOverview();
+                await loadQuestions();
+                if (document.getElementById('questionSelect').value) {
+                    await loadQuestionAnalysis();
+                }
+            } catch (error) {
+                alert('切换失败: ' + error.message);
+            }
+        }
+
+        // 导入试卷
+        async function importExam() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    const response = await fetch(`${API_BASE}/exams/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result.detail || result.message || '上传失败');
+                    }
+                    alert(`导入成功: ${result.filename}（${result.question_count}题）`);
+                    await loadExams();
+                    document.getElementById('examSelect').value = result.filename;
+
+                    if (confirm('是否立即切换到这份新试卷？')) {
+                        const switchResult = await switchExamByFilename(result.filename);
+                        const abandoned = switchResult.abandoned_sessions || 0;
+                        const extra = abandoned > 0 ? `，已结束 ${abandoned} 个进行中的会话` : '';
+                        alert(`${switchResult.message || '切换成功'}，共 ${switchResult.question_count || 0} 题${extra}`);
+                        await loadExams();
+                        await loadOverview();
+                        await loadQuestions();
+                    }
+                } catch (error) {
+                    alert('导入失败: ' + error.message);
+                }
+            };
+            input.click();
+        }
+
+        // 刷新试卷列表
+        async function refreshExams() {
+            await loadExams();
+        }
+
+        // 加载总体概况
+        async function loadOverview() {
+            try {
+                const response = await fetch(`${API_BASE}/analysis/overview`);
+                const data = await response.json();
+                
+                document.getElementById('totalStudents').textContent = data.total_students;
+                document.getElementById('totalAnswers').textContent = data.total_answers;
+                
+                // 计算平均正确率
+                let totalCorrect = 0;
+                let totalCount = 0;
+                data.question_statistics.forEach(q => {
+                    if (q.attempt_count > 0) {
+                        totalCorrect += q.correct_count;
+                        totalCount += q.attempt_count;
+                    }
+                });
+                const avgRate = totalCount > 0 ? Math.round(100 * totalCorrect / totalCount) : 0;
+                document.getElementById('avgRate').textContent = avgRate + '%';
+                
+                // 渲染题目概览
+                renderOverview(data.question_statistics);
+            } catch (error) {
+                console.error('加载概况失败:', error);
+            }
+        }
+
+        // 加载题目列表
+        async function loadQuestions() {
+            try {
+                const response = await fetch(`${API_BASE}/questions`);
+                allQuestions = await response.json();
+                
+                const select = document.getElementById('questionSelect');
+                select.innerHTML = '<option value="">请选择题目</option>';
+                allQuestions.forEach((q, index) => {
+                    const preview = q.question.substring(0, 30) + '...';
+                    select.innerHTML += `<option value="${q.id}">${index + 1}. [${q.type === 'choice' ? '选择' : '填空'}] ${preview}</option>`;
+                });
+            } catch (error) {
+                console.error('加载题目失败:', error);
+            }
+        }
+
+        // 加载班级列表
+        async function loadClasses() {
+            try {
+                const response = await fetch(`${API_BASE}/students`);
+                allStudents = await response.json();
+                const classes = [...new Set(allStudents.map(s => s.class_number))].sort();
+                
+                // 更新班级筛选器
+                const classFilter = document.getElementById('classFilter');
+                const studentClassFilter = document.getElementById('studentClassFilter');
+                
+                classes.forEach(c => {
+                    classFilter.innerHTML += `<option value="${c}">${c}班</option>`;
+                    studentClassFilter.innerHTML += `<option value="${c}">${c}班</option>`;
+                });
+                
+                await loadStudents();
+            } catch (error) {
+                console.error('加载班级失败:', error);
+            }
+        }
+
+        // 加载题目分析
+        async function loadQuestionAnalysis() {
+            const questionId = document.getElementById('questionSelect').value;
+            if (!questionId) {
+                document.getElementById('questionDetail').style.display = 'none';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/analysis/question/${questionId}`);
+                currentQuestionData = await response.json();
+                
+                // 显示题目详情
+                document.getElementById('questionDetail').style.display = 'block';
+                document.getElementById('questionText').textContent = currentQuestionData.question.content;
+                
+                // 更新统计
+                const stats = currentQuestionData.statistics;
+                document.getElementById('qTotal').textContent = stats.total_attempts;
+                document.getElementById('qCorrect').textContent = stats.correct_count;
+                document.getElementById('qWrong').textContent = stats.wrong_count;
+                document.getElementById('qRate').textContent = stats.correct_rate + '%';
+                
+                // 显示选项分布
+                renderOptionDistribution(stats.option_distribution);
+                
+                // 渲染答题详情
+                renderAnswersTable(currentQuestionData.answers);
+                
+            } catch (error) {
+                console.error('加载题目分析失败:', error);
+            }
+        }
+
+        // 渲染选项分布
+        function renderOptionDistribution(distribution) {
+            const container = document.getElementById('optionDistribution');
+            container.innerHTML = '<h3>选项分布</h3>';
+            
+            const labels = ['A', 'B', 'C', 'D'];
+            const total = Object.values(distribution).reduce((a, b) => a + b, 0);
+            
+            labels.forEach((label, index) => {
+                const count = distribution[index] || 0;
+                const percentage = total > 0 ? (100 * count / total).toFixed(1) : 0;
+                
+                const bar = document.createElement('div');
+                bar.className = 'option-bar';
+                bar.innerHTML = `
+                    <div class="option-label">${label}</div>
+                    <div class="option-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                    <div class="option-count">${count}人</div>
+                `;
+                container.appendChild(bar);
+            });
+        }
+
+        // 渲染答题表格
+        function renderAnswersTable(answers) {
+            const tbody = document.getElementById('answersTable');
+            tbody.innerHTML = '';
+            
+            answers.forEach((a, index) => {
+                const tr = document.createElement('tr');
+                const labels = ['A', 'B', 'C', 'D'];
+                const answerLabel = labels[a.answer] || a.answer;
+                
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${a.class_number}班</td>
+                    <td>${a.student_number}</td>
+                    <td>${a.name}</td>
+                    <td>${answerLabel}</td>
+                    <td class="${a.is_correct ? 'correct' : 'wrong'}">${a.is_correct ? '✓ 正确' : '✗ 错误'}</td>
+                    <td>${a.answer_time || '-'}</td>
+                    <td>${new Date(a.created_at).toLocaleString()}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 筛选答题记录
+        function filterAnswers() {
+            if (!currentQuestionData) return;
+            
+            const classFilter = document.getElementById('classFilter').value;
+            const resultFilter = document.getElementById('resultFilter').value;
+            
+            let filtered = currentQuestionData.answers;
+            
+            if (classFilter) {
+                filtered = filtered.filter(a => a.class_number == classFilter);
+            }
+            
+            if (resultFilter) {
+                const isCorrect = resultFilter === 'correct';
+                filtered = filtered.filter(a => a.is_correct === isCorrect);
+            }
+            
+            renderAnswersTable(filtered);
+        }
+
+        // 加载学生列表
+        async function loadStudents() {
+            const classFilter = document.getElementById('studentClassFilter').value;
+            const search = document.getElementById('studentSearch').value.toLowerCase();
+            
+            let filtered = allStudents;
+            if (classFilter) {
+                filtered = filtered.filter(s => s.class_number == classFilter);
+            }
+            if (search) {
+                filtered = filtered.filter(s => s.name.toLowerCase().includes(search));
+            }
+            
+            const tbody = document.getElementById('studentsTable');
+            tbody.innerHTML = '';
+            
+            for (const student of filtered) {
+                try {
+                    const response = await fetch(`${API_BASE}/analysis/student/${student.id}`);
+                    const data = await response.json();
+                    const stats = data.statistics;
+                    
+                    const tr = document.createElement('tr');
+                    const rate = stats.total_answered > 0 
+                        ? Math.round(100 * stats.correct_count / stats.total_answered) 
+                        : 0;
+                    
+                    tr.innerHTML = `
+                        <td>${student.class_number}班</td>
+                        <td>${student.student_number}</td>
+                        <td>${student.name}</td>
+                        <td>${stats.total_answered || 0}</td>
+                        <td>${stats.correct_count || 0}</td>
+                        <td>${stats.total_score || 0}</td>
+                        <td>${rate}%</td>
+                        <td><button class="btn" onclick="viewStudentDetail(${student.id})">详情</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                } catch (error) {
+                    console.error('加载学生数据失败:', error);
+                }
+            }
+        }
+
+        // 渲染题目概览
+        function renderOverview(statistics) {
+            const tbody = document.getElementById('overviewTable');
+            tbody.innerHTML = '';
+            
+            // 按正确率排序
+            const sorted = [...statistics].sort((a, b) => (a.correct_rate || 0) - (b.correct_rate || 0));
+            
+            sorted.forEach((q, index) => {
+                const tr = document.createElement('tr');
+                const rate = q.correct_rate || 0;
+                let difficulty = '简单';
+                if (rate < 50) difficulty = '困难';
+                else if (rate < 75) difficulty = '中等';
+                
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${q.id}</td>
+                    <td>${q.id.startsWith('choice') ? '选择' : '填空'}</td>
+                    <td>${q.question.substring(0, 40)}...</td>
+                    <td>${q.attempt_count || 0}</td>
+                    <td>${q.correct_count || 0}</td>
+                    <td>${rate}%</td>
+                    <td><span style="color: ${rate < 50 ? '#dc3545' : rate < 75 ? '#ffc107' : '#28a745'}; font-weight: bold;">${difficulty}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 切换选项卡
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tab + 'Tab').classList.add('active');
+            
+            if (tab === 'overview') {
+                loadOverview();
+            } else if (tab === 'student') {
+                loadStudents();
+            }
+        }
+
+        // 查看学生详情
+        function viewStudentDetail(studentId) {
+            window.open(`/xx/student_detail.html?id=${studentId}`, '_blank');
+        }
+
+        // 页面加载时初始化
+        window.onload = init;
+        
+        // 每30秒自动刷新数据
+        setInterval(() => {
+            loadOverview();
+            if (document.getElementById('questionSelect').value) {
+                loadQuestionAnalysis();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
