@@ -1414,9 +1414,7 @@ def load_questions_for_exam(
 
     if order_ids:
         rank = {qid: idx for idx, qid in enumerate(order_ids)}
-        normalized_rows.sort(
-            key=lambda row: (rank.get(str(row.get("id")), 10**9), question_sort_key(row["id"]))
-        )
+        normalized_rows.sort(key=lambda row: (rank.get(str(row.get("id")), 10**9), question_sort_key(row["id"])))
     else:
         normalized_rows.sort(key=lambda row: question_sort_key(row["id"]))
 
