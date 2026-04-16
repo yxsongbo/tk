@@ -1343,6 +1343,24 @@ def build_question_payload(q: dict, exam_mode: str) -> Question:
     return Question(**q)
 
 
+def load_exam_question_order_ids(exam_filename: Optional[str]) -> list[str]:
+    """读取试卷题目顺序，优先使用 JSON 中 questions 的原始顺序。"""
+    target_exam = Path(exam_filename).name if exam_filename else ""
+    if not target_exam:
+        return []
+
+    exam_path = resolve_exam_path(target_exam)
+    if not exam_path:
+        return []
+
+    try:
+        exam_data = load_exam_json(exam_path)
+    except Exception:
+        return []
+
+    return [str(item.get("id")) for item in exam_data.get("questions", []) if item.get("id")]
+
+
 def load_question_summaries_for_exam(
     conn: sqlite3.Connection, exam_filename: Optional[str] = None
 ) -> list[dict]:
@@ -1355,7 +1373,12 @@ def load_question_summaries_for_exam(
     else:
         cursor.execute("SELECT id, type, score FROM questions ORDER BY id")
     rows = [dict(row) for row in cursor.fetchall()]
-    rows.sort(key=lambda row: question_sort_key(row["id"]))
+    order_ids = load_exam_question_order_ids(exam_filename)
+    if order_ids:
+        rank = {qid: idx for idx, qid in enumerate(order_ids)}
+        rows.sort(key=lambda row: (rank.get(str(row.get("id")), 10**9), question_sort_key(row["id"])))
+    else:
+        rows.sort(key=lambda row: question_sort_key(row["id"]))
     return rows
 
 
@@ -1401,16 +1424,8 @@ def load_questions_for_exam(
         rows = cursor.fetchall()
     normalized_rows = [dict(row) for row in rows]
 
-    order_ids: list[str] = []
-    target_exam = Path(exam_filename).name if exam_filename else (get_current_exam_name(conn) or "")
-    if target_exam:
-        exam_path = resolve_exam_path(target_exam)
-        if exam_path:
-            try:
-                exam_data = load_exam_json(exam_path)
-                order_ids = [str(item.get("id")) for item in exam_data.get("questions", []) if item.get("id")]
-            except Exception:
-                order_ids = []
+    target_exam = exam_filename or get_current_exam_name(conn)
+    order_ids = load_exam_question_order_ids(target_exam)
 
     if order_ids:
         rank = {qid: idx for idx, qid in enumerate(order_ids)}
