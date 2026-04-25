@@ -1,0 +1,9 @@
+*.db
+*.db-wal
+*.db-shm
+*.pyc
+__pycache__/
+.venv/
+*.bak*
+generated_images/
+._*

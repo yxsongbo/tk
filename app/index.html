@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线练习系统</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/xx/styles.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #333; }
+        .app-container { max-width: 1000px; margin: 0 auto; padding: 20px; min-height: 100vh; }
+        
+        /* 登录卡片 */
+        .login-card { background: rgba(255, 255, 255, 0.95); border-radius: 20px; padding: 40px; max-width: 400px; margin: 40px auto; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+        .login-card h2 { font-size: 1.5rem; color: #1a1a2e; margin-bottom: 24px; text-align: center; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 0.9rem; color: #555; margin-bottom: 8px; font-weight: 500; }
+        .form-group input { width: 100%; padding: 14px 16px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 1rem; transition: all 0.3s; background: #fff; }
+        .form-group input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 4px rgba(102,126,234,0.1); }
+        .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 8px; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
+        
+        /* 练习区域 */
+        .practice-card { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #eee; }
+        .progress-info { display: flex; gap: 16px; font-size: 0.9rem; color: #666; }
+        .progress-info span { background: #f0f4ff; padding: 6px 12px; border-radius: 20px; }
+        .progress-info .score { background: #e8f5e9; color: #2e7d32; }
+        
+        /* 题目卡片 */
+        .question-card { background: #f8f9fa; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+        .question-number { display: inline-block; background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; margin-bottom: 12px; }
+        .question-text { font-size: 1.05rem; line-height: 1.7; margin-bottom: 16px; white-space: pre-wrap; word-break: break-word; }
+        .question-text img { display: block; max-width: 100%; width: auto; height: auto; max-height: 60vh; object-fit: contain; border-radius: 8px; margin: 8px auto; }
+        .question-images { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .question-image { display: block; max-width: 100%; width: auto; height: auto; max-height: 60vh; object-fit: contain; border-radius: 8px; margin: 0 auto; border: 1px solid #e5e7eb; background: #fff; }
+        
+        /* 选项 */
+        .options-list { display: flex; flex-direction: column; gap: 10px; }
+        .option-btn { display: flex; align-items: flex-start; padding: 14px 16px; background: white; border: 2px solid #e0e0e0; border-radius: 10px; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; }
+        .option-btn:hover { border-color: #667eea; background: #f0f4ff; }
+        .option-btn.selected { border-color: #667eea; background: #e8edff; }
+        .option-btn.correct { border-color: #10b981; background: #d1fae5; }
+        .option-btn.incorrect { border-color: #ef4444; background: #fee2e2; }
+        .option-letter { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f0f0f0; border-radius: 50%; margin-right: 12px; font-weight: 600; color: #555; }
+        .option-content { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+        .option-text { white-space: pre-wrap; word-break: break-word; }
+        .option-images { display: flex; flex-direction: column; gap: 8px; }
+        .option-image { max-width: 100%; width: auto; height: auto; max-height: 40vh; object-fit: contain; border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; }
+        .option-btn.selected .option-letter { background: #667eea; color: white; }
+        .option-btn.correct .option-letter { background: #10b981; color: white; }
+        .option-btn.incorrect .option-letter { background: #ef4444; color: white; }
+        
+        /* 填空题 */
+        .fill-blanks { display: flex; flex-direction: column; gap: 12px; }
+        .fill-blank-item { display: flex; align-items: flex-start; gap: 8px; }
+        .blank-label { font-weight: 500; color: #666; min-width: 30px; }
+        .fill-blank-body { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+        .blank-extra-label { font-size: 0.85rem; color: #64748b; }
+        .blank-images { display: flex; flex-direction: column; gap: 8px; }
+        .blank-image { max-width: 100%; width: auto; height: auto; max-height: 40vh; object-fit: contain; border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; }
+        .fill-input { flex: 1; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 0.95rem; }
+        .fill-input:focus { outline: none; border-color: #667eea; }
+        .fill-input-field { flex: 1; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 0.95rem; background: white; }
+        .fill-input-field:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+        .correct-answer { font-size: 0.85rem; color: #475569; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+        
+        /* 解析 */
+        .explanation-card { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px; padding: 16px; margin-top: 16px; }
+        .explanation-card h4 { color: #92400e; margin-bottom: 8px; font-size: 0.9rem; }
+        .explanation-card p { color: #78350f; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+
+        /* 复盘交流 */
+        .study-note-card { margin-top: 18px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 14px; padding: 16px; }
+        .study-note-card h4 { color: #0f4c81; margin-bottom: 8px; font-size: 1rem; }
+        .study-note-tip { color: #3b556d; font-size: 0.88rem; line-height: 1.6; margin-bottom: 12px; }
+        .study-note-field label { display: block; font-size: 0.85rem; color: #1e3a5f; font-weight: 600; margin-bottom: 6px; }
+        .study-note-field textarea { width: 100%; min-height: 88px; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 10px; font-size: 0.92rem; resize: vertical; background: #fff; }
+        .study-note-field textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+        .study-note-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+        .study-note-status { font-size: 0.82rem; color: #475569; }
+        .btn-note-save { padding: 10px 16px; background: linear-gradient(135deg, #0f766e, #0ea5a4); color: #fff; border: none; border-radius: 10px; font-size: 0.88rem; cursor: pointer; }
+        .btn-note-save:disabled { opacity: 0.6; cursor: not-allowed; }
+        .study-note-list { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .study-note-item { background: #fff; border: 1px solid #dbeafe; border-radius: 12px; padding: 14px; }
+        .study-note-meta { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; color: #475569; font-size: 0.82rem; }
+        .study-note-author { font-weight: 600; color: #1d4ed8; }
+        .study-note-content { color: #334155; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+        .study-note-empty { color: #64748b; font-size: 0.88rem; background: #fff; border: 1px dashed #bfdbfe; border-radius: 10px; padding: 12px; }
+        .study-note-like { margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 999px; background: #f8fafc; cursor: pointer; font-size: 0.84rem; color: #334155; }
+        .study-note-like.liked { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
+        .study-note-like:disabled { opacity: 0.65; cursor: not-allowed; }
+
+        /* 导航按钮 */
+        .nav-buttons-bottom { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
+        .btn-nav { padding: 10px 24px; background: white; color: #555; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; cursor: pointer; }
+        .btn-nav:hover:not(:disabled) { background: #667eea; color: white; border-color: #667eea; }
+        .btn-nav:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-submit-bottom { padding: 10px 40px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+        .btn-submit-bottom:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+        .btn-submit-bottom:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        /* 右侧题号导航 */
+        .question-nav-panel { margin-top: 20px; background: white; border-radius: 12px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .question-nav-title { font-size: 0.9rem; color: #374151; font-weight: 600; margin-bottom: 10px; }
+        .question-nav-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .question-nav-btn { width: 100%; aspect-ratio: 1 / 1; border: 2px solid #d1d5db; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+        .question-nav-btn:hover { transform: translateY(-1px); }
+        .question-nav-btn.current { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25); }
+        .question-nav-btn.status-unanswered { background: #f3f4f6; color: #6b7280; border-color: #d1d5db; }
+        .question-nav-btn.status-full { background: #dcfce7; color: #166534; border-color: #86efac; }
+        .question-nav-btn.status-partial { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+        .question-nav-btn.status-wrong { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+        .question-nav-legend { margin-top: 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+        .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #4b5563; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .legend-dot.unanswered { background: #d1d5db; }
+        .legend-dot.full { background: #22c55e; }
+        .legend-dot.partial { background: #f59e0b; }
+        .legend-dot.wrong { background: #ef4444; }
+        .exam-sidebar-card { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
+        .exam-sidebar-section + .exam-sidebar-section { margin-top: 14px; }
+        .exam-sidebar-label { font-size: 0.78rem; color: #64748b; margin-bottom: 6px; }
+        .exam-sidebar-value { font-size: 1.15rem; font-weight: 700; color: #0f172a; }
+        .exam-sidebar-meta { font-size: 0.74rem; color: #64748b; margin-top: 4px; line-height: 1.5; }
+        .exam-sidebar-section .exam-top-list { margin-top: 10px; }
+        .exam-top-list { display: flex; flex-direction: column; gap: 8px; }
+        .exam-top-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.82rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; }
+        .exam-top-rank { width: 24px; height: 24px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+        .exam-top-info { flex: 1; min-width: 0; color: #334155; }
+        .exam-top-name { font-weight: 600; color: #0f172a; }
+        .exam-top-score { font-weight: 700; color: #0f766e; white-space: nowrap; }
+        .exam-sidebar-empty { font-size: 0.8rem; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px; }
+
+        .btn-handin { padding: 6px 14px; background: #f59e0b; color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+        .btn-handin:hover { background: #d97706; }
+
+        @media (min-width: 1100px) {
+            .app-container { max-width: 1400px; }
+            .practice-layout { display: grid; grid-template-columns: 1fr 200px; gap: 24px; align-items: start; }
+            .question-nav-panel { position: sticky; top: 20px; margin-top: 0; }
+            .question-card { padding: 28px; }
+        }
+        
+        .hidden { display: none !important; }
+        
+        /* 完成页面 */
+        .completion-card { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 48px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+        .completion-icon { width: 80px; height: 80px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 2.5rem; }
+        .completion-card h2 { font-size: 1.5rem; color: #1a1a2e; margin-bottom: 16px; }
+        .score-display { font-size: 3rem; font-weight: 700; color: #667eea; margin: 16px 0; }
+        .message { color: #666; font-size: 1rem; margin-bottom: 24px; }
+        .btn-restart { padding: 12px 32px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; }
+        
+        /* 登录错误 */
+        .login-error { margin-top: 12px; padding: 12px; background: #fee2e2; color: #dc2626; border-radius: 8px; text-align: center; font-size: 0.9rem; }
+
+        /* 记住我区域 */
+        .remember-row { display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: nowrap; margin-top: 6px; }
+        .remember-label { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; font-size: 0.78rem; margin: 0; color: #94a3b8; white-space: nowrap; }
+        .remember-label input { margin: 0; }
+        .btn-link { border: none; background: none; color: #94a3b8; font-size: 0.78rem; cursor: pointer; padding: 2px 0; white-space: nowrap; }
+        @media (max-width: 480px) {
+            .remember-row { justify-content: space-between; gap: 10px; }
+        }
+        .btn-link:hover, .remember-label:hover { color: #64748b; }
+        .btn-link:hover { color: #334155; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 登录区域 -->
+        <div id="loginSection" class="login-card">
+            <h2>请登录</h2>
+            <div class="form-group">
+                <label>准考证号</label>
+                <input type="text" id="examNumber" placeholder="请输入准考证号" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>姓名</label>
+                <input type="text" id="studentName" placeholder="请输入姓名" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>重考口令（可选，考试模式需要重考时填写）</label>
+                <input type="password" id="overrideCode" placeholder="若无可留空" autocomplete="off">
+            </div>
+            <div class="form-group hidden" id="examSelectGroup">
+                <label>选择练习试卷</label>
+                <select id="examSelect" style="width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:10px; font-size:14px;">
+                    <option value="">加载中...</option>
+                </select>
+            </div>
+            <button id="startBtn" class="btn-primary">开始练习</button>
+            <div class="form-group remember-row">
+                <label class="remember-label">
+                    <input type="checkbox" id="rememberMe">
+                    <span title="仅保留1小时">记住我</span>
+                </label>
+                <button type="button" id="clearRememberBtn" class="btn-link">清除记忆</button>
+            </div>
+            <div id="loginError" class="login-error hidden"></div>
+        </div>
+
+        <!-- 练习区域 -->
+        <div id="practiceSection" class="practice-card hidden">
+            <div class="header-bar">
+                <div class="progress-info">
+                    <span id="progressText">第 1 / 28 题</span>
+                    <span id="scoreText" class="score">得分: 0</span>
+                </div>
+                <button id="handInBtn" class="btn-handin">交卷</button>
+            </div>
+
+            <div class="practice-layout">
+                <div class="main-content">
+                    <div id="questionContainer"></div>
+                    <div class="nav-buttons-bottom">
+                        <button id="prevBtn" class="btn-nav">‹ 上一题</button>
+                        <button id="submitBtn" class="btn-submit-bottom">提交答案</button>
+                        <button id="nextBtn" class="btn-nav">下一题 ›</button>
+                    </div>
+                </div>
+
+                <div class="sidebar">
+                    <div class="question-nav-panel">
+                        <div class="question-nav-title">题号导航</div>
+                        <div id="questionNavGrid" class="question-nav-grid"></div>
+                        <div class="question-nav-legend">
+                            <span class="legend-item"><span class="legend-dot unanswered"></span>未答</span>
+                            <span class="legend-item"><span class="legend-dot full"></span>满分</span>
+                            <span class="legend-item"><span class="legend-dot partial"></span>部分得分</span>
+                            <span class="legend-item"><span class="legend-dot wrong"></span>零分</span>
+                        </div>
+                        <div id="examSidebarCard" class="exam-sidebar-card"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 完成页面 -->
+        <div id="completionSection" class="completion-card hidden">
+            <div class="completion-icon">🎉</div>
+            <h2>练习完成！</h2>
+            <div class="score-display" id="finalScore">0</div>
+            <p class="message" id="completionMessage">继续保持！</p>
+            <button id="restartBtn" class="btn-restart">重新练习</button>
+        </div>
+    </div>
+    <script>
+        const API_BASE = '/xx/api';
+        let questions = [];
+        let currentQuestionIndex = 0;
+        let answers = {};
+        let selectedAnswer = null;
+        let currentSessionId = null;
+        let currentStudentId = null;
+        let currentExamFilename = '';
+        let startTime = null;
+        let totalScore = 0;
+        let activeQuestionId = null;
+        let isPaperSubmitted = false;
+        let draftAnswers = {};
+        let examMode = 'practice';
+        let availableExams = [];
+        let lastActivity = Date.now();
+        let isSubmittingAnswer = false;
+        let isFinishingPractice = false;
+        let isSavingStudyNote = false;
+        let isStartingPractice = false;
+        let inactivityTimer = null;
+        let examSidebarTimer = null;
+        let persistSessionTimer = null;
+        let examSidebarRequestInFlight = false;
+        let examSidebarFailureCount = 0;
+        let studyNotesByQuestionText = {};
+        let studyNoteDrafts = {};
+        let noteLikePending = new Set();
+        let examSidebarStats = {
+            online_loading: false,
+            history_loading: false,
+            active_sessions: 0,
+            active_students: [],
+            top_students: [],
+            online_refresh_ms: 10000,
+            history_refresh_ms: 3600000,
+            online_updated_at: '',
+            history_updated_at: '',
+            history_cached: false,
+            degraded: false
+        };
+        const REMEMBER_KEY = 'rememberLogin';
+        const ACTIVE_SESSION_KEY = 'activePracticeSession';
+
+        function showSubmitFailureHint() {
+            alert('网络较慢或提交失败，请检查网络后再点“提交”。若多次失败，请先截图保存当前答案，刷新页面重新登录后再尝试。');
+        }
+
+        function recordActivity() {
+            lastActivity = Date.now();
+        }
+
+        function normalizeDraftAnswers(rawDrafts) {
+            const normalized = {};
+            if (!rawDrafts || typeof rawDrafts !== 'object') return normalized;
+
+            Object.entries(rawDrafts).forEach(([questionId, value]) => {
+                if (!questionId || value === null || value === undefined) return;
+                if (typeof value === 'number') {
+                    normalized[questionId] = value;
+                    return;
+                }
+                const text = String(value);
+                if (text !== '') {
+                    normalized[questionId] = text;
+                }
+            });
+            return normalized;
+        }
+
+        function readActiveSessionState() {
+            try {
+                const raw = sessionStorage.getItem(ACTIVE_SESSION_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && Number(parsed.session_id) > 0 && Number(parsed.student_id) > 0) {
+                        return {
+                            session_id: Number(parsed.session_id),
+                            student_id: Number(parsed.student_id),
+                            exam_filename: String(parsed.exam_filename || ''),
+                            current_question_index: Number.isInteger(parsed.current_question_index) ? parsed.current_question_index : null,
+                            draft_answers: normalizeDraftAnswers(parsed.draft_answers)
+                        };
+                    }
+                }
+            } catch (error) {
+                sessionStorage.removeItem(ACTIVE_SESSION_KEY);
+            }
+
+            const sessionId = Number(sessionStorage.getItem('sessionId') || 0);
+            const studentId = Number(sessionStorage.getItem('studentId') || 0);
+            if (sessionId > 0 && studentId > 0) {
+                return {
+                    session_id: sessionId,
+                    student_id: studentId,
+                    exam_filename: String(sessionStorage.getItem('examFilename') || ''),
+                    current_question_index: null,
+                    draft_answers: {}
+                };
+            }
+            return null;
+        }
+
+        function clearActiveSessionState() {
+            if (persistSessionTimer) {
+                clearTimeout(persistSessionTimer);
+                persistSessionTimer = null;
+            }
+            sessionStorage.removeItem(ACTIVE_SESSION_KEY);
+            sessionStorage.removeItem('sessionId');
+            sessionStorage.removeItem('studentId');
+            sessionStorage.removeItem('examFilename');
+        }
+
+        function flushActiveSessionState() {
+            if (!currentSessionId || !currentStudentId || isPaperSubmitted) return;
+
+            const payload = {
+                session_id: Number(currentSessionId),
+                student_id: Number(currentStudentId),
+                exam_filename: currentExamFilename || '',
+                current_question_index: currentQuestionIndex,
+                draft_answers: draftAnswers
+            };
+            sessionStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(payload));
+            sessionStorage.setItem('sessionId', String(currentSessionId));
+            sessionStorage.setItem('studentId', String(currentStudentId));
+            sessionStorage.setItem('examFilename', currentExamFilename || '');
+        }
+
+        function persistActiveSessionState(immediate = false, delayMs = 400) {
+            if (persistSessionTimer) {
+                clearTimeout(persistSessionTimer);
+                persistSessionTimer = null;
+            }
+            if (immediate) {
+                flushActiveSessionState();
+                return;
+            }
+            persistSessionTimer = setTimeout(() => {
+                persistSessionTimer = null;
+                flushActiveSessionState();
+            }, Math.max(100, Number(delayMs) || 400));
+        }
+
+        function clampQuestionIndex(index, totalQuestions, fallbackIndex = 0) {
+            if (!Number.isInteger(index)) return fallbackIndex;
+            if (totalQuestions <= 0) return 0;
+            if (index < 0) return fallbackIndex;
+            if (index >= totalQuestions) return totalQuestions - 1;
+            return index;
+        }
+
+        function enterPracticeSession(session, storedState = null) {
+            currentSessionId = session.id;
+            currentStudentId = session.student_id;
+            currentExamFilename = session.exam_filename || '';
+
+            const resumeState = session.resume_state && typeof session.resume_state === 'object'
+                ? session.resume_state
+                : null;
+            const summaries = Array.isArray(session.question_summaries) ? session.question_summaries : [];
+            const allQuestions = summaries.map(item => ({ ...item, loaded: false, loading: false }));
+            if (allQuestions.length === 0) {
+                throw new Error('暂无可用题目');
+            }
+
+            questions = allQuestions;
+            answers = {};
+            draftAnswers = {};
+            totalScore = 0;
+            examSidebarStats = {
+                online_loading: false,
+                history_loading: false,
+                active_sessions: 0,
+                active_students: [],
+                top_students: [],
+                online_refresh_ms: 10000,
+                history_refresh_ms: 3600000,
+                online_updated_at: '',
+                history_updated_at: '',
+                history_cached: false,
+                degraded: false
+            };
+            studyNotesByQuestionText = {};
+            studyNoteDrafts = {};
+            noteLikePending = new Set();
+            isSavingStudyNote = false;
+
+            if (resumeState && Array.isArray(resumeState.answers)) {
+                const questionMap = new Map(questions.map(q => [q.id, q]));
+                resumeState.answers.forEach(item => {
+                    const question = questionMap.get(item.question_id);
+                    let answerValue = item.answer;
+                    if (question && question.type === 'choice') {
+                        const parsed = parseInt(item.answer);
+                        answerValue = Number.isNaN(parsed) ? item.answer : parsed;
+                    }
+                    answers[item.question_id] = {
+                        answer: answerValue,
+                        is_correct: item.is_correct,
+                        score: Number(item.score) || 0,
+                        submitted: true
+                    };
+                });
+                totalScore = Number(resumeState.total_score) || 0;
+            }
+
+            const canReuseStoredState = storedState && Number(storedState.session_id) === Number(session.id);
+            if (canReuseStoredState) {
+                draftAnswers = normalizeDraftAnswers(storedState.draft_answers);
+            }
+            Object.keys(draftAnswers).forEach(questionId => {
+                if (answers[questionId] && answers[questionId].submitted) {
+                    delete draftAnswers[questionId];
+                }
+            });
+
+            const firstUnanswered = questions.findIndex(q => !answers[q.id]);
+            const fallbackIndex = firstUnanswered >= 0 ? firstUnanswered : 0;
+            const sessionInitialIndex = clampQuestionIndex(
+                Number.isInteger(session.initial_question_index) ? session.initial_question_index : fallbackIndex,
+                questions.length,
+                fallbackIndex
+            );
+            const storedIndex = canReuseStoredState && Number.isInteger(storedState.current_question_index)
+                ? storedState.current_question_index
+                : null;
+            currentQuestionIndex = clampQuestionIndex(storedIndex, questions.length, sessionInitialIndex);
+
+            document.getElementById('loginError').classList.add('hidden');
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('completionSection').classList.add('hidden');
+            document.getElementById('practiceSection').classList.remove('hidden');
+
+            activeQuestionId = null;
+            selectedAnswer = null;
+            isPaperSubmitted = false;
+            lastActivity = Date.now();
+            persistActiveSessionState(true);
+            startInactivityWatch();
+            startExamSidebarWatch();
+            renderQuestion();
+        }
+
+        async function restoreActiveSession() {
+            const storedState = readActiveSessionState();
+            if (!storedState) return false;
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${storedState.session_id}/state`);
+                const session = await response.json();
+                if (!response.ok) {
+                    throw new Error(session.detail || 'restore session failed');
+                }
+                if (Number(session.student_id) !== Number(storedState.student_id)) {
+                    throw new Error('session student mismatch');
+                }
+                enterPracticeSession(session, storedState);
+                return true;
+            } catch (error) {
+                console.error('恢复考试会话失败', error);
+                clearActiveSessionState();
+                return false;
+            }
+        }
+
+        function startInactivityWatch() {
+            if (inactivityTimer) clearInterval(inactivityTimer);
+            inactivityTimer = setInterval(async () => {
+                if (isPaperSubmitted || !currentSessionId) return;
+                const idleMs = Date.now() - lastActivity;
+                if (idleMs >= 10 * 60 * 1000) { // 10分钟无操作强制交卷
+                    await finishPractice();
+                    if (inactivityTimer) clearInterval(inactivityTimer);
+                }
+            }, 60000); // 每分钟检查一次
+        }
+
+        function formatRefreshInterval(ms) {
+            const seconds = Math.max(1, Math.round(Number(ms || 0) / 1000));
+            if (seconds < 60) return `${seconds}秒`;
+            const minutes = Math.round(seconds / 60);
+            return `${minutes}分钟`;
+        }
+
+        function scheduleExamSidebarRefresh(delayMs) {
+            if (examSidebarTimer) clearTimeout(examSidebarTimer);
+            examSidebarTimer = setTimeout(() => {
+                if (document.getElementById('practiceSection').classList.contains('hidden') || isPaperSubmitted) return;
+                loadExamSidebarStats();
+            }, Math.max(3000, Number(delayMs) || 10000));
+        }
+
+        function renderExamSidebarStats() {
+            const container = document.getElementById('examSidebarCard');
+            if (!container) return;
+
+            const activeStudents = Array.isArray(examSidebarStats.active_students) ? examSidebarStats.active_students : [];
+            const topStudents = Array.isArray(examSidebarStats.top_students) ? examSidebarStats.top_students : [];
+            const onlineCount = Number(examSidebarStats.active_sessions || activeStudents.length || 0);
+            const onlineHint = examSidebarStats.degraded
+                ? `当前在线 ${onlineCount} 人，系统繁忙，已将在线榜单刷新频率降为约${formatRefreshInterval(examSidebarStats.online_refresh_ms)}。`
+                : `当前在线 ${onlineCount} 人，在线分数实时获取，当前按约${formatRefreshInterval(examSidebarStats.online_refresh_ms)}刷新。`;
+            const historyHint = examSidebarStats.history_updated_at
+                ? `历史榜单每1小时更新一次，上次刷新 ${new Date(examSidebarStats.history_updated_at).toLocaleTimeString()}。`
+                : '历史榜单每1小时更新一次。';
+            const onlineListHtml = activeStudents.length > 0
+                ? `<div class="exam-top-list">${activeStudents.map(item => `
+                    <div class="exam-top-item">
+                        <span class="exam-top-rank">${item.rank}</span>
+                        <div class="exam-top-info">
+                            <div class="exam-top-name">${escapeHtml(item.name || '未知同学')}</div>
+                            <div>${escapeHtml(String(item.class_number || ''))}班 ${escapeHtml(String(item.student_number || ''))}号 · 已答${Number(item.answered_count || 0)}题</div>
+                        </div>
+                        <div class="exam-top-score">${Number(item.current_score || 0).toFixed(1)}</div>
+                    </div>
+                `).join('')}</div>`
+                : `<div class="exam-sidebar-empty">${examSidebarStats.online_loading ? '正在获取在线练习分数...' : '当前暂无同学在线练习。'}</div>`;
+            const topListHtml = topStudents.length > 0
+                ? `<div class="exam-top-list">${topStudents.map(item => `
+                    <div class="exam-top-item">
+                        <span class="exam-top-rank">${item.rank}</span>
+                        <div class="exam-top-info">
+                            <div class="exam-top-name">${escapeHtml(item.name || '未知同学')}</div>
+                            <div>${escapeHtml(String(item.class_number || ''))}班 ${escapeHtml(String(item.student_number || ''))}号</div>
+                        </div>
+                        <div class="exam-top-score">${Number(item.best_score || 0).toFixed(1)}</div>
+                    </div>
+                `).join('')}</div>`
+                : `<div class="exam-sidebar-empty">${examSidebarStats.history_loading ? '正在加载历史成绩...' : '暂时还没有历史练习成绩。'}</div>`;
+
+            container.innerHTML = `
+                <div class="exam-sidebar-section">
+                    <div class="exam-sidebar-label">本试卷在线练习</div>
+                    <div class="exam-sidebar-meta">${escapeHtml(onlineHint)}</div>
+                    ${onlineListHtml}
+                </div>
+                <div class="exam-sidebar-section">
+                    <div class="exam-sidebar-label">历史练习：得分最高的8位同学</div>
+                    <div class="exam-sidebar-meta">${escapeHtml(historyHint)}</div>
+                    ${topListHtml}
+                </div>
+            `;
+        }
+
+        async function loadExamSidebarStats(forceHistory = false) {
+            if (examSidebarRequestInFlight) return;
+            renderExamSidebarStats();
+            if (!currentExamFilename) return;
+
+            const shouldLoadHistory = forceHistory
+                || !examSidebarStats.history_updated_at
+                || (Date.now() - new Date(examSidebarStats.history_updated_at).getTime()) >= Number(examSidebarStats.history_refresh_ms || 3600000);
+
+            examSidebarRequestInFlight = true;
+            examSidebarStats = {
+                ...examSidebarStats,
+                online_loading: true,
+                history_loading: shouldLoadHistory
+            };
+            renderExamSidebarStats();
+            let timeoutId = null;
+            try {
+                const examParam = `?exam_filename=${encodeURIComponent(currentExamFilename)}&include_history=${shouldLoadHistory ? '1' : '0'}`;
+                const controller = new AbortController();
+                const timeoutMs = Math.min(Math.max(Number(examSidebarStats.online_refresh_ms || 10000), 8000), 20000);
+                timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+                const response = await fetch(`${API_BASE}/exams/sidebar_stats${examParam}`, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                timeoutId = null;
+                if (!response.ok) throw new Error('load sidebar stats failed');
+                const result = await response.json();
+                examSidebarStats = {
+                    online_loading: false,
+                    history_loading: false,
+                    active_sessions: Number(result.active_sessions || 0),
+                    active_students: Array.isArray(result.active_students) ? result.active_students : [],
+                    top_students: Array.isArray(result.top_students) ? result.top_students : examSidebarStats.top_students,
+                    online_refresh_ms: Number(result.online_refresh_ms || examSidebarStats.online_refresh_ms || 10000),
+                    history_refresh_ms: Number(result.history_refresh_ms || examSidebarStats.history_refresh_ms || 3600000),
+                    online_updated_at: result.online_updated_at || new Date().toISOString(),
+                    history_updated_at: result.history_updated_at || examSidebarStats.history_updated_at,
+                    history_cached: Boolean(result.history_cached),
+                    degraded: Boolean(result.health && result.health.alert)
+                };
+                examSidebarFailureCount = 0;
+            } catch (error) {
+                examSidebarStats = {
+                    ...examSidebarStats,
+                    online_loading: false,
+                    history_loading: false,
+                    degraded: true,
+                    active_sessions: Number(examSidebarStats.active_sessions || 0),
+                    active_students: Array.isArray(examSidebarStats.active_students) ? examSidebarStats.active_students : [],
+                    top_students: Array.isArray(examSidebarStats.top_students) ? examSidebarStats.top_students : []
+                };
+                examSidebarFailureCount += 1;
+            } finally {
+                if (timeoutId) clearTimeout(timeoutId);
+                examSidebarRequestInFlight = false;
+            }
+            renderExamSidebarStats();
+            const baseRefreshMs = Number(examSidebarStats.online_refresh_ms || 10000);
+            const nextRefreshMs = examSidebarFailureCount > 0
+                ? Math.min(baseRefreshMs * Math.pow(2, examSidebarFailureCount), 120000)
+                : baseRefreshMs;
+            scheduleExamSidebarRefresh(nextRefreshMs);
+        }
+
+        function startExamSidebarWatch() {
+            if (examSidebarTimer) clearTimeout(examSidebarTimer);
+            examSidebarFailureCount = 0;
+            loadExamSidebarStats(true);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeAttr(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function normalizeImageSources(raw) {
+            if (!raw) return [];
+            if (Array.isArray(raw)) {
+                return raw.filter(item => typeof item === 'string' && item.trim() !== '').map(item => item.trim());
+            }
+            if (typeof raw !== 'string') return [];
+
+            const trimmed = raw.trim();
+            if (!trimmed) return [];
+            if (trimmed.startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    if (Array.isArray(parsed)) {
+                        return parsed.filter(item => typeof item === 'string' && item.trim() !== '').map(item => item.trim());
+                    }
+                } catch (error) {}
+            }
+            return [trimmed];
+        }
+
+        function getQuestionImages(question) {
+            const all = [];
+            all.push(...normalizeImageSources(question && question.images));
+            all.push(...normalizeImageSources(question && question.image));
+            return [...new Set(all)];
+        }
+
+        function getOptionImages(option) {
+            if (!option || typeof option !== 'object') return [];
+            const all = [];
+            all.push(...normalizeImageSources(option.images));
+            all.push(...normalizeImageSources(option.image));
+            return [...new Set(all)];
+        }
+
+        function renderImages(images, imageClass, altText) {
+            if (!images || images.length === 0) return '';
+            return images.map(src => `<img class="${imageClass}" src="${escapeAttr(src)}" alt="${escapeAttr(altText)}">`).join('');
+        }
+
+function normalizeFillAnswer(value) {
+    return String(value ?? '')
+        .trim()
+        .replace(/\u3000/g, '')
+        .replace(/\s+/g, '');
+}
+
+function levenshteinDistance(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    
+    const matrix = [];
+    
+    // Initialize the matrix
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+    
+    // Fill in the matrix
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // substitution
+                    matrix[i][j - 1] + 1,     // insertion
+                    matrix[i - 1][j] + 1      // deletion
+                );
+            }
+        }
+    }
+    
+    return matrix[b.length][a.length];
+}
+
+function stringsSimilarity(a, b) {
+    if (a === b) return 1.0;
+    if (a.length === 0 || b.length === 0) return 0.0;
+    
+    const distance = levenshteinDistance(a, b);
+    const maxLength = Math.max(a.length, b.length);
+    return 1.0 - (distance / maxLength);
+}
+
+        function buildFillAnswerVariants(answer) {
+            const raw = String(answer ?? '').trim();
+            if (!raw) return [];
+
+            const variants = new Set([normalizeFillAnswer(raw)]);
+            const normalizedBrackets = raw.replace(/（/g, '(').replace(/）/g, ')');
+
+            if (normalizedBrackets.includes('或')) {
+                const parts = normalizedBrackets.split(/\s*[,，]?\s*或\s*/);
+                parts.forEach((part) => {
+                    const cleaned = part.trim().replace(/^[()[\]{}<>"'“”‘’、，,;；]+|[()[\]{}<>"'“”‘’、，,;；]+$/g, '');
+                    const candidate = normalizeFillAnswer(cleaned);
+                    if (candidate) variants.add(candidate);
+
+                    const nested = cleaned.match(/^(.*?)\((.*?)\)$/);
+                    if (nested) {
+                        const left = normalizeFillAnswer(nested[1]);
+                        const right = normalizeFillAnswer(nested[2]);
+                        if (left) variants.add(left);
+                        if (right) variants.add(right);
+                    }
+                });
+            }
+            return Array.from(variants).filter(Boolean);
+        }
+
+        function normalizeFillBlankItem(rawBlank) {
+            const blank = { answers: [], images: [], label: null };
+
+            if (Array.isArray(rawBlank)) {
+                blank.answers = rawBlank
+                    .map(item => String(item ?? '').trim())
+                    .filter(Boolean);
+                return blank;
+            }
+
+            if (rawBlank && typeof rawBlank === 'object') {
+                if (Array.isArray(rawBlank.answers)) {
+                    blank.answers = rawBlank.answers
+                        .map(item => String(item ?? '').trim())
+                        .filter(Boolean);
+                } else if (rawBlank.answers !== undefined && rawBlank.answers !== null) {
+                    const one = String(rawBlank.answers).trim();
+                    if (one) blank.answers = [one];
+                }
+                blank.images = [
+                    ...normalizeImageSources(rawBlank.images),
+                    ...normalizeImageSources(rawBlank.image),
+                ];
+                blank.images = Array.from(new Set(blank.images));
+                if (rawBlank.label !== undefined && rawBlank.label !== null) {
+                    const label = String(rawBlank.label).trim();
+                    if (label) blank.label = label;
+                }
+                return blank;
+            }
+
+            if (rawBlank !== undefined && rawBlank !== null) {
+                const one = String(rawBlank).trim();
+                if (one) blank.answers = [one];
+            }
+            return blank;
+        }
+
+function parseFillBlanksFromCorrectAnswer(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+        return raw.map(normalizeFillBlankItem);
+    }
+    if (typeof raw === 'object') {
+        const list = Array.isArray(raw.blanks) ? raw.blanks : (Array.isArray(raw.answers) ? raw.answers : []);
+        return list.map(normalizeFillBlankItem);
+    }
+    const text = String(raw).trim();
+    if (!text) return [];
+
+    if (text.startsWith('[') || text.startsWith('{')) {
+        try {
+            const parsed = JSON.parse(text);
+            return parseFillBlanksFromCorrectAnswer(parsed);
+        } catch (error) {}
+    }
+
+    // Treat the whole string as a single acceptable answer for one blank
+    // Don't split on commas, as they may be part of the answer
+    return [{ answers: [text], images: [], label: null }];
+}
+
+        function getFillBlanks(question) {
+            let blanks = [];
+            if (question && Array.isArray(question.fill_blanks)) {
+                blanks = question.fill_blanks.map(normalizeFillBlankItem);
+            }
+            if (blanks.length === 0) {
+                blanks = parseFillBlanksFromCorrectAnswer(question ? question.correct_answer : null);
+            }
+            return blanks.filter(blank => blank.answers.length > 0 || blank.images.length > 0 || !!blank.label);
+        }
+
+function isFillAnswerCorrectForBlank(studentValue, blank) {
+    const studentNormalized = normalizeFillAnswer(studentValue);
+    if (!studentNormalized) return 0.0;
+    
+    let maxSimilarity = 0.0;
+    
+    for (const answer of (blank.answers || [])) {
+        const variants = buildFillAnswerVariants(answer);
+        for (const variant of variants) {
+            const similarity = stringsSimilarity(studentNormalized, variant);
+            if (similarity > maxSimilarity) {
+                maxSimilarity = similarity;
+            }
+        }
+        
+        // Check for "或" variations
+        const hasOr = String(answer ?? '').includes('或');
+        if (hasOr) {
+            for (const variant of variants) {
+                if (studentNormalized.length >= 2 && variant.length >= 2 && 
+                    (studentNormalized.includes(variant) || variant.includes(studentNormalized))) {
+                    // For 包含关系, 计算较短字符串与较长字符串的相似度
+                    const shorter = studentNormalized.length < variant.length ? studentNormalized : variant;
+                    const longer = studentNormalized.length < variant.length ? variant : studentNormalized;
+                    const similarity = stringsSimilarity(shorter, longer);
+                    if (similarity > maxSimilarity) {
+                        maxSimilarity = similarity;
+                    }
+                }
+            }
+        }
+    }
+    
+    // 如果相似度达到90%或以上，返回满分(1.0)
+    return maxSimilarity >= 0.9 ? 1.0 : maxSimilarity;
+}
+
+        function getFillBlankDisplayAnswer(blank) {
+            if (!blank || !Array.isArray(blank.answers) || blank.answers.length === 0) return '（未配置）';
+            return blank.answers.join(' / ');
+        }
+
+        async function loadStudents() {
+            try {
+                const response = await fetch(`${API_BASE}/students`);
+                students = await response.json();
+            } catch (error) {
+                document.getElementById('loginError').textContent = '加载失败，请刷新';
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        async function loadExamMode() {
+            try {
+                const response = await fetch(`${API_BASE}/exams/mode`);
+                const data = await response.json();
+                if (data && data.mode) {
+                    examMode = data.mode;
+                }
+            } catch (error) {
+                examMode = 'practice';
+            }
+        }
+
+        async function loadExams() {
+            try {
+                const [examsRes, currentRes] = await Promise.all([
+                    fetch(`${API_BASE}/exams/list`),
+                    fetch(`${API_BASE}/exams/current`)
+                ]);
+                availableExams = await examsRes.json();
+                const current = await currentRes.json();
+
+                const select = document.getElementById('examSelect');
+                const group = document.getElementById('examSelectGroup');
+                if (!Array.isArray(availableExams) || availableExams.length === 0) {
+                    select.innerHTML = '<option value=\"\">暂无试卷</option>';
+                    group.classList.remove('hidden');
+                    return;
+                }
+
+                select.innerHTML = '';
+                availableExams.forEach((exam, idx) => {
+                    const option = document.createElement('option');
+                    option.value = exam.filename;
+                    option.textContent = `${exam.title} (${exam.question_count}题)`;
+                    if (exam.filename === current.current_exam || (!current.current_exam && idx === 0)) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+
+                if (examMode === 'practice') {
+                    group.classList.remove('hidden');
+                } else {
+                    group.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('加载试卷列表失败', error);
+                const select = document.getElementById('examSelect');
+                select.innerHTML = '<option value=\"\">加载失败</option>';
+            }
+        }
+
+        document.getElementById('startBtn').addEventListener('click', async function() {
+            if (isStartingPractice) return;
+
+            const startBtn = document.getElementById('startBtn');
+            const examNumber = document.getElementById('examNumber').value.trim();
+            const name = document.getElementById('studentName').value.trim();
+            const overrideCode = document.getElementById('overrideCode').value.trim();
+            const remember = document.getElementById('rememberMe').checked;
+            const errorDiv = document.getElementById('loginError');
+            
+            if (!examNumber || !name) {
+                errorDiv.textContent = '请输入准考证号和姓名';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            if (remember) {
+                const payload = { examNumber, name, ts: Date.now() };
+                localStorage.setItem(REMEMBER_KEY, JSON.stringify(payload));
+            } else {
+                localStorage.removeItem(REMEMBER_KEY);
+            }
+            errorDiv.classList.add('hidden');
+            
+            try {
+                isStartingPractice = true;
+                startBtn.disabled = true;
+                startBtn.textContent = '正在进入...';
+
+                if (!Array.isArray(availableExams) || availableExams.length === 0) {
+                    await loadExams();
+                }
+                const loginResponse = await fetch(`${API_BASE}/students/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        exam_number: examNumber,
+                        name: name
+                    })
+                });
+                const loginResult = await loginResponse.json();
+                if (!loginResponse.ok) {
+                    throw new Error(loginResult.detail || '准考证号或姓名错误');
+                }
+                currentStudentId = loginResult.id;
+
+                const examSelect = document.getElementById('examSelect');
+                const selectedExam = examSelect ? examSelect.value : '';
+
+                const sessionResponse = await fetch(`${API_BASE}/sessions/start`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        student_id: currentStudentId,
+                        exam_filename: examMode === 'practice' ? selectedExam : undefined,
+                        override_code: overrideCode || undefined
+                    })
+                });
+                const session = await sessionResponse.json();
+                if (!sessionResponse.ok) {
+                    throw new Error(session.detail || '开始失败');
+                }
+                enterPracticeSession(session, readActiveSessionState());
+            } catch (error) {
+                errorDiv.textContent = error.message || '开始失败，请重试';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                isStartingPractice = false;
+                startBtn.disabled = false;
+                startBtn.textContent = '开始练习';
+            }
+        });
+
+        function recomputeTotalScore() {
+            totalScore = Object.values(answers).reduce((sum, item) => sum + (Number(item && item.score) || 0), 0);
+        }
+
+        function mergeQuestionDetail(index, detail) {
+            if (index < 0 || index >= questions.length || !detail) return;
+            questions[index] = {
+                ...questions[index],
+                ...detail,
+                loaded: true,
+                loading: false
+            };
+        }
+
+        async function fetchQuestionDetail(index) {
+            if (index < 0 || index >= questions.length) return;
+            const question = questions[index];
+            if (!question || question.loaded || question.loading) return;
+
+            question.loading = true;
+            if (index === currentQuestionIndex) {
+                const container = document.getElementById('questionContainer');
+                if (container) {
+                    container.innerHTML = '<div class="question-card">题目加载中...</div>';
+                }
+            }
+
+            try {
+                const examParam = currentExamFilename ? `?exam_filename=${encodeURIComponent(currentExamFilename)}` : '';
+                const response = await fetch(`${API_BASE}/questions/${encodeURIComponent(question.id)}${examParam}`);
+                if (!response.ok) throw new Error('load question failed');
+                const detail = await response.json();
+                mergeQuestionDetail(index, detail);
+            } catch (error) {
+                question.loading = false;
+                if (index === currentQuestionIndex) {
+                    const container = document.getElementById('questionContainer');
+                    if (container) {
+                        container.innerHTML = '<div class="question-card">题目加载失败，请稍后重试。</div>';
+                    }
+                }
+                return;
+            }
+
+            if (index === currentQuestionIndex) {
+                renderQuestion();
+            }
+        }
+
+        function prefetchNextQuestion(index) {
+            const nextIndex = index + 1;
+            if (nextIndex < 0 || nextIndex >= questions.length) return;
+            fetchQuestionDetail(nextIndex);
+        }
+
+        function getStudyNoteKey(question) {
+            return String(question && question.question ? question.question : '').trim();
+        }
+
+        function getStudyNoteContent(note) {
+            const content = String(note && note.thinking ? note.thinking : '').trim();
+            if (content) return content;
+
+            const knowledgePoints = String(note && note.knowledge_points ? note.knowledge_points : '').trim();
+            return knowledgePoints;
+        }
+
+        function ensureStudyNoteDraft(question) {
+            const key = getStudyNoteKey(question);
+            if (!key) return { content: '' };
+            if (!studyNoteDrafts[key]) {
+                const state = studyNotesByQuestionText[key];
+                const ownNote = state && Array.isArray(state.notes) ? state.notes.find(note => note.is_own) : null;
+                studyNoteDrafts[key] = {
+                    content: ownNote ? getStudyNoteContent(ownNote) : ''
+                };
+            }
+            return studyNoteDrafts[key];
+        }
+
+        function updateStudyNoteDraft(value) {
+            const question = questions[currentQuestionIndex];
+            if (!question) return;
+            const draft = ensureStudyNoteDraft(question);
+            draft.content = value;
+            const saveButton = document.getElementById('saveStudyNoteBtn');
+            if (saveButton) {
+                const canSave = !isSavingStudyNote && !!String(draft.content || '').trim();
+                saveButton.disabled = !canSave;
+            }
+        }
+
+        async function loadStudyNotesForQuestion(question) {
+            if (!question || examMode !== 'practice' || !currentStudentId) return;
+
+            const key = getStudyNoteKey(question);
+            if (!key) return;
+
+            const currentState = studyNotesByQuestionText[key];
+            if (currentState && (currentState.loading || currentState.loaded)) return;
+
+            studyNotesByQuestionText[key] = { loading: true, loaded: false, notes: [] };
+            try {
+                const response = await fetch(`${API_BASE}/notes?question_text=${encodeURIComponent(key)}&current_student_id=${currentStudentId}`);
+                if (!response.ok) throw new Error('load notes failed');
+                const result = await response.json();
+                studyNotesByQuestionText[key] = {
+                    loading: false,
+                    loaded: true,
+                    notes: Array.isArray(result.notes) ? result.notes : []
+                };
+                ensureStudyNoteDraft(question);
+            } catch (error) {
+                studyNotesByQuestionText[key] = { loading: false, loaded: true, notes: [] };
+            }
+
+            const currentQuestion = questions[currentQuestionIndex];
+            if (currentQuestion && getStudyNoteKey(currentQuestion) === key) {
+                renderQuestion();
+            }
+        }
+
+        function buildStudyNotesHtml(question) {
+            if (!question || examMode !== 'practice') return '';
+            const answerData = answers[question.id];
+            if (!answerData || !answerData.submitted) return '';
+
+            const key = getStudyNoteKey(question);
+            const noteState = studyNotesByQuestionText[key] || { loading: false, loaded: false, notes: [] };
+            const draft = ensureStudyNoteDraft(question);
+            const ownNote = noteState.notes.find(note => note.is_own);
+            const saveDisabled = isSavingStudyNote || !String(draft.content || '').trim();
+            const encouragement = ownNote && Number(ownNote.like_count || 0) > 0
+                ? `这条复盘已获得 ${ownNote.like_count} 个赞，继续保持。`
+                : '写下本题用到的知识点、答题思路，或指出题目、答案、解析中的问题和你的评价。';
+
+            let listHtml = '<div class="study-note-empty">暂时还没有同题复盘，先写下你的思路吧。</div>';
+            if (noteState.loading) {
+                listHtml = '<div class="study-note-empty">正在加载同学复盘...</div>';
+            } else if (noteState.notes.length > 0) {
+                listHtml = `<div class="study-note-list">${noteState.notes.map(note => {
+                    const likeDisabled = note.is_own || note.liked_by_me || noteLikePending.has(note.id);
+                    const likeText = note.liked_by_me ? '已点赞' : '点赞';
+                    return `<div class="study-note-item">
+                        <div class="study-note-meta">
+                            <span class="study-note-author">${escapeHtml(note.name)} · ${escapeHtml(String(note.class_number))}班</span>
+                            <span>${escapeHtml(String(note.exam_filename || '当前试卷'))} · ${new Date(note.updated_at || note.created_at).toLocaleString()}</span>
+                        </div>
+                        <div class="study-note-content">${escapeHtml(getStudyNoteContent(note) || '（未填写）')}</div>
+                        <button type="button" class="study-note-like${note.liked_by_me ? ' liked' : ''}" onclick="likeStudyNote(${note.id})" ${likeDisabled ? 'disabled' : ''}>
+                            <span>${likeText}</span>
+                            <span>${Number(note.like_count || 0)} 赞</span>
+                        </button>
+                    </div>`;
+                }).join('')}</div>`;
+            }
+
+            return `<div class="study-note-card">
+                <h4>复盘与交流</h4>
+                <div class="study-note-tip">${escapeHtml(encouragement)}</div>
+                <div class="study-note-field">
+                    <label for="studyNoteInput">我的复盘</label>
+                    <textarea id="studyNoteInput" placeholder="可以写本题用到的知识点、你的答题思路，也可以指出题目、答案或解析中的错误，并说说你对这道题的评价。" oninput="updateStudyNoteDraft(this.value)">${escapeHtml(draft.content || '')}</textarea>
+                </div>
+                <div class="study-note-actions">
+                    <div class="study-note-status">${ownNote ? `已保存，当前收到 ${Number(ownNote.like_count || 0)} 个赞。` : '提交后可继续修改你的复盘。'}</div>
+                    <button type="button" id="saveStudyNoteBtn" class="btn-note-save" onclick="saveCurrentStudyNote()" ${saveDisabled ? 'disabled' : ''}>${isSavingStudyNote ? '保存中...' : (ownNote ? '更新复盘' : '保存复盘')}</button>
+                </div>
+                ${listHtml}
+            </div>`;
+        }
+
+        async function saveCurrentStudyNote() {
+            const question = questions[currentQuestionIndex];
+            if (!question || isSavingStudyNote) return;
+
+            const draft = ensureStudyNoteDraft(question);
+            const content = String(draft.content || '').trim();
+            if (!content) {
+                alert('请先写一点你的复盘内容。');
+                return;
+            }
+
+            isSavingStudyNote = true;
+            renderQuestion();
+            try {
+                const response = await fetch(`${API_BASE}/notes`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        student_id: currentStudentId,
+                        session_id: currentSessionId,
+                        question_id: question.id,
+                        knowledge_points: '',
+                        thinking: content
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'save note failed');
+
+                const key = getStudyNoteKey(question);
+                const currentNotes = (studyNotesByQuestionText[key] && studyNotesByQuestionText[key].notes) || [];
+                const others = currentNotes.filter(note => !note.is_own && note.id !== result.note.id);
+                studyNotesByQuestionText[key] = {
+                    loading: false,
+                    loaded: true,
+                    notes: [result.note, ...others]
+                };
+                studyNoteDrafts[key] = {
+                    content: getStudyNoteContent(result.note)
+                };
+            } catch (error) {
+                alert(error.message || '保存复盘失败，请重试');
+            } finally {
+                isSavingStudyNote = false;
+                renderQuestion();
+            }
+        }
+
+        async function likeStudyNote(noteId) {
+            if (!noteId || noteLikePending.has(noteId)) return;
+            noteLikePending.add(noteId);
+            renderQuestion();
+            try {
+                const response = await fetch(`${API_BASE}/notes/${noteId}/like`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ student_id: currentStudentId })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'like failed');
+
+                Object.keys(studyNotesByQuestionText).forEach((key) => {
+                    const state = studyNotesByQuestionText[key];
+                    if (!state || !Array.isArray(state.notes)) return;
+                    state.notes = state.notes.map(note => note.id === noteId
+                        ? { ...note, like_count: Number(result.like_count || note.like_count || 0), liked_by_me: true }
+                        : note
+                    );
+                });
+            } catch (error) {
+                alert(error.message || '点赞失败，请重试');
+            } finally {
+                noteLikePending.delete(noteId);
+                renderQuestion();
+            }
+        }
+
+        function updateSubmitButtonState(question, currentAnswerData = answers[question.id]) {
+            const submitBtn = document.getElementById('submitBtn');
+            if (!submitBtn || !question) return;
+
+            if (currentAnswerData && currentAnswerData.submitted) {
+                submitBtn.textContent = '已提交';
+                submitBtn.disabled = true;
+                return;
+            }
+
+            if (question.type === 'fill') {
+                let hasAnswer = false;
+                if (selectedAnswer && selectedAnswer !== '') {
+                    const parts = String(selectedAnswer).split('|||');
+                    hasAnswer = parts.some(p => p && p.trim() !== '');
+                }
+                submitBtn.textContent = hasAnswer ? '提交答案' : '请填写答案';
+                submitBtn.disabled = !hasAnswer;
+                return;
+            }
+
+            if (selectedAnswer === null || selectedAnswer === undefined) {
+                submitBtn.textContent = '请选择答案';
+                submitBtn.disabled = true;
+            } else {
+                submitBtn.textContent = '提交答案';
+                submitBtn.disabled = false;
+            }
+        }
+
+        function updateChoiceSelectionUI(question) {
+            if (!question || question.type !== 'choice') return;
+
+            const answerData = answers[question.id];
+            const showFeedback = examMode !== 'exam';
+            const correctIdx = parseInt(question.correct_answer);
+            const buttons = document.querySelectorAll('#questionContainer .option-btn');
+            buttons.forEach((button) => {
+                const index = Number(button.dataset.index);
+                let className = 'option-btn';
+                if (answerData && answerData.submitted) {
+                    if (showFeedback) {
+                        if (index === correctIdx) className += ' correct';
+                        else if (selectedAnswer === index) className += ' incorrect';
+                    } else if (selectedAnswer === index) {
+                        className += ' selected';
+                    }
+                } else if (selectedAnswer === index) {
+                    className += ' selected';
+                }
+                button.className = className;
+            });
+            updateSubmitButtonState(question, answerData);
+        }
+
+        function renderQuestion() {
+            const question = questions[currentQuestionIndex];
+            if (!question) return;
+
+            if (!question.loaded) {
+                fetchQuestionDetail(currentQuestionIndex);
+                document.getElementById('questionContainer').innerHTML = '<div class="question-card">题目加载中...</div>';
+                document.getElementById('progressText').textContent = `第 ${currentQuestionIndex+1} / ${questions.length} 题`;
+                document.getElementById('scoreText').textContent = `得分: ${totalScore.toFixed(1)}`;
+                renderQuestionNavigator();
+                document.getElementById('prevBtn').disabled = currentQuestionIndex === 0;
+                document.getElementById('nextBtn').disabled = currentQuestionIndex === questions.length - 1;
+                const submitBtn = document.getElementById('submitBtn');
+                submitBtn.textContent = '题目加载中';
+                submitBtn.disabled = true;
+                return;
+            }
+
+            prefetchNextQuestion(currentQuestionIndex);
+
+            const container = document.getElementById('questionContainer');
+            const isQuestionChanged = activeQuestionId !== question.id;
+            if (isQuestionChanged) {
+                const savedAnswer = answers[question.id];
+                const hasDraftAnswer = Object.prototype.hasOwnProperty.call(draftAnswers, question.id);
+                selectedAnswer = savedAnswer !== undefined
+                    ? savedAnswer.answer
+                    : (hasDraftAnswer ? draftAnswers[question.id] : null);
+                startTime = Date.now();
+                activeQuestionId = question.id;
+            }
+
+            let answerHtml = '';
+            
+            if (question.type === 'choice' && question.options && question.options.length > 0) {
+                const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+                const correctIdx = parseInt(question.correct_answer);
+                const answerData = answers[question.id];
+                const showFeedback = examMode !== 'exam';
+                
+                answerHtml = '<div class="options-list">' + question.options.map((opt, i) => {
+                    const optionText = (opt && typeof opt === 'object') ? (opt.text ?? '') : (opt ?? '');
+                    const optionImages = getOptionImages(opt);
+                    const optionImagesHtml = optionImages.length > 0
+                        ? `<div class="option-images">${renderImages(optionImages, 'option-image', `选项${letters[i]}图片`)}</div>`
+                        : '';
+                    const isSelected = selectedAnswer === i;
+                    let className = 'option-btn';
+                    if (answerData && answerData.submitted) {
+                        if (showFeedback) {
+                            if (i === correctIdx) className += ' correct';
+                            else if (isSelected) className += ' incorrect';
+                        } else if (isSelected) {
+                            className += ' selected';
+                        }
+                    } else if (isSelected) className += ' selected';
+                    return `<div class="${className}" data-index="${i}" onclick="selectOption(${i})"><span class="option-letter">${letters[i]}</span><span class="option-content"><span class="option-text">${escapeHtml(optionText)}</span>${optionImagesHtml}</span></div>`;
+                }).join('') + '</div>';
+            } else if (question.type === 'fill') {
+                const fillBlanks = getFillBlanks(question);
+                const blankCount = fillBlanks.length;
+                const answerData = answers[question.id];
+                const savedFillAnswers = answerData
+                    ? String(answerData.answer ?? '').split('|||')
+                    : (selectedAnswer ? String(selectedAnswer ?? '').split('|||') : []);
+                const showFeedback = examMode !== 'exam';
+                
+                answerHtml = '<div class="fill-blanks">';
+                if (blankCount === 0) {
+                    answerHtml += '<div class="fill-blank-item"><span class="blank-label">(1)</span><div class="fill-blank-body"><span class="correct-answer">该题未配置标准答案，请联系教师。</span></div></div>';
+                }
+                for (let i = 0; i < blankCount; i++) {
+                    const blankMeta = fillBlanks[i] || { answers: [], images: [], label: null };
+                    const blankValue = savedFillAnswers[i] || '';
+                    const isSubmitted = answerData && answerData.submitted;
+                    const isCorrect = showFeedback ? isFillAnswerCorrectForBlank(blankValue, blankMeta) : false;
+                    const displayCorrect = getFillBlankDisplayAnswer(blankMeta);
+                    const labelHtml = blankMeta.label
+                        ? `<div class="blank-extra-label">${escapeHtml(blankMeta.label)}</div>`
+                        : '';
+                    const blankImagesHtml = blankMeta.images && blankMeta.images.length > 0
+                        ? `<div class="blank-images">${renderImages(blankMeta.images, 'blank-image', `第${i+1}空图片`)}</div>`
+                        : '';
+                    let inputClass = 'fill-input';
+                    if (isSubmitted && showFeedback) inputClass += isCorrect ? ' correct' : ' incorrect';
+
+                    answerHtml += `<div class="fill-blank-item"><span class="blank-label">(${i+1})</span><div class="fill-blank-body">${labelHtml}${blankImagesHtml}`;
+                    if (isSubmitted) {
+                        if (showFeedback) {
+                            const similarity = isFillAnswerCorrectForBlank(blankValue, blankMeta);
+                            const similarityPercent = Math.round(similarity * 100);
+                            answerHtml += `<span class="${inputClass}">${escapeHtml(blankValue || '(未填写)')}</span><span class="correct-answer">正确答案: ${escapeHtml(displayCorrect)} (相似度: ${similarity}%)</span>`;
+                        } else {
+                            answerHtml += `<span class="${inputClass}">${escapeHtml(blankValue || '(未填写)')}</span>`;
+                        }
+                    } else {
+                        answerHtml += `<input type="text" class="fill-input-field" id="fill_blank_${i}" placeholder="请输入第${i+1}个空" value="${escapeAttr(blankValue)}" oninput="handleFillInput(${i}, this.value)">`;
+                    }
+                    answerHtml += '</div></div>';
+                }
+                answerHtml += '</div>';
+            }
+
+            let explanationHtml = '';
+            let currentAnswerData = answers[question.id];
+            if (currentAnswerData && currentAnswerData.submitted && question.explanation && examMode !== 'exam') {
+                explanationHtml = `<div class="explanation-card"><h4>💡 答案解析</h4><p>${escapeHtml(question.explanation)}</p></div>`;
+            }
+            const studyNotesHtml = buildStudyNotesHtml(question);
+
+            const questionImages = getQuestionImages(question);
+            const questionImagesHtml = questionImages.length > 0
+                ? `<div class="question-images">${renderImages(questionImages, 'question-image', '题目图片')}</div>`
+                : '';
+            container.innerHTML = `<div class="question-card"><span class="question-number">${question.type==='choice'?'选择题':'填空题'} 第 ${currentQuestionIndex+1} 题 (${question.score}分)</span><div class="question-text">${escapeHtml(question.question)}</div>${questionImagesHtml}${answerHtml}${explanationHtml}${studyNotesHtml}</div>`;
+
+            if (currentAnswerData && currentAnswerData.submitted && examMode === 'practice') {
+                loadStudyNotesForQuestion(question);
+            }
+
+            document.getElementById('progressText').textContent = `第 ${currentQuestionIndex+1} / ${questions.length} 题`;
+            document.getElementById('scoreText').textContent = `得分: ${totalScore.toFixed(1)}`;
+            renderQuestionNavigator();
+
+            document.getElementById('prevBtn').disabled = currentQuestionIndex === 0;
+            document.getElementById('nextBtn').disabled = currentQuestionIndex === questions.length - 1;
+            updateSubmitButtonState(question, currentAnswerData);
+        }
+
+        function getQuestionStatus(question) {
+            const answerData = answers[question.id];
+            if (!answerData || !answerData.submitted) return 'unanswered';
+
+            const questionScore = Number(question.score) || 0;
+            const answerScore = Number(answerData.score) || 0;
+            if (answerScore >= questionScore - 0.0001) return 'full';
+            if (answerScore > 0) return 'partial';
+            return 'wrong';
+        }
+
+        function renderQuestionNavigator() {
+            const navGrid = document.getElementById('questionNavGrid');
+            if (!navGrid) return;
+
+            navGrid.innerHTML = questions.map((question, index) => {
+                const status = getQuestionStatus(question);
+                const currentClass = index === currentQuestionIndex ? ' current' : '';
+                const statusTextMap = {
+                    unanswered: '未答',
+                    full: '满分',
+                    partial: '部分得分',
+                    wrong: '零分',
+                };
+                const statusText = statusTextMap[status] || '未答';
+                return `<button type="button" class="question-nav-btn status-${status}${currentClass}" title="第${index + 1}题 - ${statusText}" onclick="jumpToQuestion(${index})">${index + 1}</button>`;
+            }).join('');
+        }
+
+        function jumpToQuestion(index) {
+            if (index < 0 || index >= questions.length) return;
+            currentQuestionIndex = index;
+            persistActiveSessionState();
+            renderQuestion();
+        }
+
+        function selectOption(index) {
+            recordActivity();
+            const question = questions[currentQuestionIndex];
+            const answerData = answers[question.id];
+            if (answerData && answerData.submitted) return;
+            selectedAnswer = parseInt(index);
+            draftAnswers[question.id] = selectedAnswer;
+            persistActiveSessionState();
+            updateChoiceSelectionUI(question);
+        }
+
+        function handleFillInput(blankIndex, value) {
+            recordActivity();
+            updateFillAnswer(blankIndex, value);
+        }
+
+        function updateFillAnswer(blankIndex, value) {
+            const question = questions[currentQuestionIndex];
+            const answerData = answers[question.id];
+            if (answerData && answerData.submitted) return;
+
+            const fillBlanks = getFillBlanks(question);
+            const blankCount = fillBlanks.length;
+            const currentAnswers = selectedAnswer ? String(selectedAnswer).split('|||') : [];
+            currentAnswers[blankIndex] = value;
+            while (currentAnswers.length < blankCount) currentAnswers.push('');
+            selectedAnswer = currentAnswers.join('|||');
+            draftAnswers[question.id] = selectedAnswer;
+
+            const submitBtn = document.getElementById('submitBtn');
+            const hasAnswer = currentAnswers.some(answer => answer && answer.trim() !== '');
+            submitBtn.textContent = hasAnswer ? '提交答案' : '请填写答案';
+            submitBtn.disabled = !hasAnswer;
+            persistActiveSessionState();
+        }
+
+        document.getElementById('submitBtn').addEventListener('click', async function() {
+            if (isSubmittingAnswer) return;
+
+            const question = questions[currentQuestionIndex];
+            recordActivity();
+
+            if (!question) return;
+
+            const submitBtn = document.getElementById('submitBtn');
+            const previousDisabled = submitBtn.disabled;
+            isSubmittingAnswer = true;
+            submitBtn.disabled = true;
+
+            try {
+                if (question.type === 'fill') {
+                    if (!selectedAnswer || selectedAnswer === '') return;
+                    const answerTime = Math.round((Date.now() - startTime) / 1000);
+                    const response = await fetch(`${API_BASE}/answers/submit`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({student_id: currentStudentId, session_id: currentSessionId, question_id: question.id, answer: selectedAnswer, answer_time: answerTime})
+                    });
+                    if (!response.ok) throw new Error('submit failed');
+                    const result = await response.json();
+                    const score = Number(result.score) || 0;
+                    answers[question.id] = { answer: selectedAnswer, is_correct: result.is_correct, score, submitted: true };
+                    delete draftAnswers[question.id];
+                    recomputeTotalScore();
+                    persistActiveSessionState();
+                    renderQuestion();
+                } else {
+                    if (selectedAnswer === null) return;
+                    const answerTime = Math.round((Date.now() - startTime) / 1000);
+                    const answerValue = parseInt(selectedAnswer);
+                    const response = await fetch(`${API_BASE}/answers/submit`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({student_id: currentStudentId, session_id: currentSessionId, question_id: question.id, answer: answerValue, answer_time: answerTime})
+                    });
+                    if (!response.ok) throw new Error('submit failed');
+                    const result = await response.json();
+                    const score = Number(result.score) || 0;
+                    answers[question.id] = { answer: answerValue, is_correct: result.is_correct, score, submitted: true };
+                    delete draftAnswers[question.id];
+                    recomputeTotalScore();
+                    persistActiveSessionState();
+                    renderQuestion();
+                }
+            } catch (error) {
+                submitBtn.disabled = previousDisabled;
+                showSubmitFailureHint();
+            } finally {
+                isSubmittingAnswer = false;
+            }
+        });
+
+        document.getElementById('prevBtn').addEventListener('click', function() {
+            recordActivity();
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                persistActiveSessionState();
+                renderQuestion();
+            }
+        });
+
+        document.getElementById('nextBtn').addEventListener('click', function() {
+            recordActivity();
+            if (currentQuestionIndex < questions.length - 1) {
+                currentQuestionIndex++;
+                persistActiveSessionState();
+                renderQuestion();
+            }
+        });
+
+        async function finishPractice() {
+            if (isFinishingPractice) return false;
+            isFinishingPractice = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${currentSessionId}/end`, {method: 'POST'});
+                if (!response.ok) throw new Error('end session failed');
+
+                const result = await response.json();
+                const finalScore = Number(result.total_score);
+                if (Number.isFinite(finalScore)) {
+                    totalScore = finalScore;
+                } else {
+                    recomputeTotalScore();
+                }
+
+                isPaperSubmitted = true;
+                if (examSidebarTimer) clearTimeout(examSidebarTimer);
+                clearActiveSessionState();
+                document.getElementById('practiceSection').classList.add('hidden');
+                document.getElementById('completionSection').classList.remove('hidden');
+                document.getElementById('finalScore').textContent = totalScore.toFixed(1);
+                return true;
+            } catch (error) {
+                alert('交卷失败，请重试');
+                return false;
+            } finally {
+                isFinishingPractice = false;
+            }
+        }
+
+        document.getElementById('restartBtn').addEventListener('click', function() {
+            clearActiveSessionState();
+            location.reload();
+        });
+
+        // 页面加载
+        window.onload = async function() {
+            await loadExamMode();
+            await loadExams();
+            try {
+                const raw = localStorage.getItem(REMEMBER_KEY);
+                if (raw) {
+                    const saved = JSON.parse(raw);
+                    const valid = saved && saved.ts && (Date.now() - saved.ts) <= 3600 * 1000;
+                    if (valid) {
+                        document.getElementById('examNumber').value = saved.examNumber || '';
+                        document.getElementById('studentName').value = saved.name || '';
+                        document.getElementById('rememberMe').checked = true;
+                    } else {
+                        localStorage.removeItem(REMEMBER_KEY);
+                    }
+                }
+            } catch (error) {
+                localStorage.removeItem(REMEMBER_KEY);
+            }
+            document.addEventListener('click', recordActivity, true);
+            document.addEventListener('keydown', recordActivity, true);
+            window.addEventListener('pagehide', () => persistActiveSessionState(true));
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    persistActiveSessionState(true);
+                }
+            });
+            await restoreActiveSession();
+        };
+
+        document.getElementById('clearRememberBtn').addEventListener('click', function() {
+            localStorage.removeItem(REMEMBER_KEY);
+            document.getElementById('rememberMe').checked = false;
+            document.getElementById('examNumber').value = '';
+            document.getElementById('studentName').value = '';
+        });
+
+        document.getElementById('handInBtn').addEventListener('click', async function() {
+            if (!currentSessionId || isPaperSubmitted) return;
+
+            const answeredCount = Object.keys(answers).length;
+            const unansweredCount = questions.length - answeredCount;
+            const message = unansweredCount > 0
+                ? `还有 ${unansweredCount} 题未提交，确认现在交卷吗？`
+                : '确认交卷吗？';
+
+            if (confirm(message)) {
+                await finishPractice();
+            }
+        });
+    </script>
+</body>
+</html>
