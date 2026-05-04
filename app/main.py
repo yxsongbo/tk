@@ -62,6 +62,25 @@ SIDEBAR_HISTORY_CACHE: dict[str, dict[str, Any]] = {}
 SIDEBAR_HISTORY_CACHE_LOCK = threading.Lock()
 SIDEBAR_HISTORY_TTL_SECONDS = 3600
 SIDEBAR_ACTIVE_LIMIT = 8
+OVERRIDE_CODE = os.getenv("OVERRIDE_CODE", "2055350")
+STUDY_NOTE_MAX_LENGTH = 200
+
+
+def _check_repetitive_content(text: str) -> bool:
+    """检测重复内容：若最长重复子串（长度>=2）占比超过60%则判定为无效输入。"""
+    if not text or len(text) < 6:
+        return False
+    # 统计所有长度>=2的子串出现次数
+    counts: dict[str, int] = {}
+    for length in range(2, min(len(text) // 2 + 1, 20)):
+        for i in range(len(text) - length + 1):
+            sub = text[i:i + length]
+            counts[sub] = counts.get(sub, 0) + 1
+    if not counts:
+        return False
+    best = max(counts, key=lambda s: counts[s] * len(s))
+    coverage = counts[best] * len(best) / len(text)
+    return coverage > 0.6
 
 
 def _is_postgres() -> bool:
@@ -848,30 +867,6 @@ def load_exam_sidebar_active_students(
     return int(active_sessions), active_students
 
 
-def ensure_exam_questions_table(cursor: sqlite3.Cursor) -> None:
-    """确保 exam_questions 表存在，用于缓存多份试卷的题目。"""
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS exam_questions (
-            exam_filename TEXT NOT NULL,
-            id TEXT NOT NULL,
-            type TEXT NOT NULL CHECK(type IN ('choice', 'fill')),
-            question TEXT NOT NULL,
-            score REAL NOT NULL,
-            explanation TEXT,
-            image TEXT,
-            correct_answer TEXT,
-            options TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (exam_filename, id)
-        )
-        """
-    )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_exam_questions_exam ON exam_questions(exam_filename)"
-    )
-
-
 def extract_correct_answer(question_data: dict) -> str | int | None:
     """兼容不同试卷格式的答案字段。"""
     question_type = str(question_data.get("type", "")).strip()
@@ -1291,6 +1286,7 @@ class SessionStart(BaseModel):
     student_id: int
     exam_filename: Optional[str] = None
     override_code: Optional[str] = None
+    mode: Optional[str] = None
 
 
 class StudentLoginRequest(BaseModel):
@@ -1315,9 +1311,26 @@ def build_session_snapshot(
     status: str,
     exam_filename: str,
     resumed: bool,
+    mode: str = None,  # full, incorrect, unpracticed, favorites
 ) -> dict[str, Any]:
     cursor = conn.cursor()
     safe_exam_filename = (exam_filename or "").strip()
+    
+    # 如果是特殊模式，不加载全部题目摘要，让前端按模式加载
+    if mode in ('incorrect', 'unpracticed', 'favorites'):
+        return {
+            "id": session_id,
+            "student_id": student_id,
+            "start_time": start_time if isinstance(start_time, str) else start_time.isoformat(),
+            "status": status,
+            "exam_filename": safe_exam_filename,
+            "question_summaries": [],
+            "answers": [],
+            "total_score": 0,
+            "resumed": resumed,
+            "mode": mode,
+        }
+    
     question_summaries = load_question_summaries_for_exam(conn, safe_exam_filename)
 
     cursor.execute(
@@ -1652,6 +1665,44 @@ def ensure_study_note_tables(cursor: Any) -> None:
     )
 
 
+def ensure_favorite_tables(cursor: Any) -> None:
+    """确保题目收藏表存在。"""
+    if _is_postgres():
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS student_favorites (
+                id SERIAL PRIMARY KEY,
+                student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+                question_id TEXT NOT NULL,
+                exam_filename TEXT NOT NULL DEFAULT '',
+                question_text TEXT NOT NULL DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(student_id, question_id, exam_filename)
+            )
+            """
+        )
+    else:
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS student_favorites (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id INTEGER NOT NULL,
+                question_id TEXT NOT NULL,
+                exam_filename TEXT NOT NULL DEFAULT '',
+                question_text TEXT NOT NULL DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(student_id, question_id, exam_filename)
+            )
+            """
+        )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_favorites_student ON student_favorites(student_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_favorites_question ON student_favorites(question_id)"
+    )
+
+
 def serialize_study_note(row: dict, current_student_id: Optional[int] = None) -> dict:
     note = dict(row)
     note["like_count"] = int(note.get("like_count") or 0)
@@ -1665,20 +1716,8 @@ def get_db():
     if _is_postgres():
         if psycopg is None:
             raise RuntimeError("psycopg 未安装，无法连接 PostgreSQL")
-        global PG_POOL
         if PG_POOL is None:
-            if ConnectionPool is None:
-                raise RuntimeError("psycopg_pool 未安装，无法创建连接池")
-            min_size = int(os.getenv("PG_POOL_MIN", "5"))
-            max_size = int(os.getenv("PG_POOL_MAX", "60"))
-            timeout = float(os.getenv("PG_POOL_TIMEOUT", "10"))
-            PG_POOL = ConnectionPool(
-                _pg_conninfo(),
-                min_size=min_size,
-                max_size=max_size,
-                timeout=timeout,
-                kwargs={"row_factory": dict_row},
-            )
+            raise RuntimeError("PostgreSQL 连接池未初始化，请检查服务启动流程")
         with PG_POOL.connection() as conn:
             yield conn
     else:
@@ -1845,6 +1884,7 @@ def init_db_postgres():
 
         ensure_exam_questions_table(cursor)
         ensure_study_note_tables(cursor)
+        ensure_favorite_tables(cursor)
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_answers_question ON answers(question_id)"
         )
@@ -1961,6 +2001,7 @@ def init_db():
     ensure_column(cursor, "answers", "exam_filename", "exam_filename TEXT")
     ensure_exam_questions_table(cursor)
     ensure_study_note_tables(cursor)
+    ensure_favorite_tables(cursor)
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_sessions_exam ON sessions(exam_filename)"
     )
@@ -1986,6 +2027,11 @@ def init_db():
             import_exam_into_exam_questions(compat_conn, available_exams[0])
         else:
             set_current_exam(compat_conn, "")
+    
+    # 导入所有可用试卷到 exam_questions 表
+    if available_exams:
+        for exam_path in available_exams:
+            import_exam_into_exam_questions(compat_conn, exam_path)
     elif available_exams:
         import_exam_into_questions(compat_conn, available_exams[0])
         import_exam_into_exam_questions(compat_conn, available_exams[0])
@@ -2167,6 +2213,9 @@ def update_exam_question(
 def start_session(data: SessionStart, conn: sqlite3.Connection = Depends(get_db)):
     """开始练习会话"""
     cursor = conn.cursor()
+    
+    # 获取传入的mode（用于错题/未练习/收藏模式）
+    mode = data.mode
     exam_mode = get_exam_mode(conn)
 
     # 如果已有进行中的会话，优先恢复（除非提供口令强制重开）
@@ -2181,7 +2230,7 @@ def start_session(data: SessionStart, conn: sqlite3.Connection = Depends(get_db)
         (data.student_id,),
     )
     existing = cursor.fetchone()
-    if existing and data.override_code != "2055350":
+    if existing and data.override_code != OVERRIDE_CODE:
         existing_exam = (existing["exam_filename"] or "").strip()
         if not existing_exam:
             existing_exam = get_current_exam_name(conn) or ""
@@ -2196,9 +2245,11 @@ def start_session(data: SessionStart, conn: sqlite3.Connection = Depends(get_db)
                 (existing_exam,),
             )
             if (_fetchone_value(cursor.fetchone(), 0) or 0) == 0:
+                # existing_exam 已确定，使用它来定位试卷文件（避免对未定义 exam_filename 的引用）
                 path = resolve_exam_path(existing_exam)
                 if path:
                     import_exam_into_exam_questions(conn, path)
+        # 恢复会话时也传递mode
         return build_session_snapshot(
             conn=conn,
             session_id=existing["id"],
@@ -2207,6 +2258,7 @@ def start_session(data: SessionStart, conn: sqlite3.Connection = Depends(get_db)
             status=existing["status"],
             exam_filename=existing_exam,
             resumed=True,
+            mode=mode,
         )
 
     # 确定本次会话使用的试卷
@@ -2234,21 +2286,24 @@ def start_session(data: SessionStart, conn: sqlite3.Connection = Depends(get_db)
     if not exam_filename or not resolve_exam_path(exam_filename):
         raise HTTPException(status_code=404, detail="试卷文件不存在")
 
-    # 所有模式：1小时内仅允许一次会话，除非提供口令
-    one_hour_ago = datetime.now() - timedelta(hours=1)
-    cursor.execute(
-        """
-        SELECT COUNT(*) FROM sessions
-        WHERE student_id = %s AND start_time >= %s AND status IN ('active', 'completed')
-        """,
-        (data.student_id, one_hour_ago),
-    )
-    recent_count = _fetchone_value(cursor.fetchone(), 0) or 0
-    if recent_count > 0 and data.override_code != "2055350":
-        raise HTTPException(
-            status_code=429,
-            detail="每小时仅允许登录一次。如需重登请联系教师获取口令。",
+    # 特殊学生ID (2812 王浩宇) 无限制，其他学生10分钟内仅允许一次会话
+    VIP_STUDENT_ID = 2812
+    cooldown_minutes = 10 if data.student_id != VIP_STUDENT_ID else 0
+    if cooldown_minutes > 0:
+        cooldown_time = datetime.now() - timedelta(minutes=cooldown_minutes)
+        cursor.execute(
+            """
+            SELECT COUNT(*) FROM sessions
+            WHERE student_id = %s AND start_time >= %s AND status IN ('active', 'completed')
+            """,
+            (data.student_id, cooldown_time),
         )
+        recent_count = _fetchone_value(cursor.fetchone(), 0) or 0
+        if recent_count > 0 and data.override_code != OVERRIDE_CODE:
+            raise HTTPException(
+                status_code=429,
+                detail=f"每{cooldown_minutes}分钟仅允许登录一次。如需重登请联系教师获取口令。",
+            )
 
     # 确保 exam_questions 有缓存，没有则导入
     cursor.execute(
@@ -2287,7 +2342,9 @@ def start_session(data: SessionStart, conn: sqlite3.Connection = Depends(get_db)
         )
         session_id = cursor.lastrowid
     conn.commit()
-    return build_session_snapshot(
+    
+    # 传递mode到build_session_snapshot
+    result = build_session_snapshot(
         conn=conn,
         session_id=session_id,
         student_id=data.student_id,
@@ -2295,7 +2352,9 @@ def start_session(data: SessionStart, conn: sqlite3.Connection = Depends(get_db)
         status="active",
         exam_filename=exam_filename or "",
         resumed=False,
+        mode=mode,
     )
+    return result
 
 
 @app.get("/api/sessions/{session_id}/state")
@@ -2393,6 +2452,7 @@ def submit_answer(data: AnswerRequest, conn: sqlite3.Connection = Depends(get_db
         blank_count = len(fill_blanks)
         student_answers = str(data.answer).split("|||")
         total_similarity = 0.0
+        correct_count_value = 0
 
         if blank_count > 0:
             for i, blank in enumerate(fill_blanks):
@@ -2403,11 +2463,11 @@ def submit_answer(data: AnswerRequest, conn: sqlite3.Connection = Depends(get_db
                     if similarity > max_similarity:
                         max_similarity = similarity
                 total_similarity += max_similarity
+                if max_similarity >= 0.9:
+                    correct_count_value += 1
 
             score = round(question["score"] * total_similarity / blank_count, 2)
-            is_correct = (
-                total_similarity >= blank_count - 0.0001
-            )  # Allow small floating point error
+            is_correct = total_similarity >= blank_count - 0.0001
         else:
             score = 0
             is_correct = False
@@ -2461,29 +2521,12 @@ def submit_answer(data: AnswerRequest, conn: sqlite3.Connection = Depends(get_db
     if get_exam_mode(conn) == "exam":
         return {"score": score}
 
-    # Calculate correct_count as the number of blanks with >= 90% similarity (full score)
-    correct_count_value = None
-    blank_count_value = None
-    if question["type"] == "fill":
-        correct_count_value = 0
-        if blank_count > 0:
-            for i, blank in enumerate(fill_blanks):
-                student_answer = student_answers[i] if i < len(student_answers) else ""
-                max_similarity = 0.0
-                for raw_answer in blank.get("answers", []):
-                    similarity = is_fill_answer_match(student_answer, raw_answer)
-                    if similarity > max_similarity:
-                        max_similarity = similarity
-                if max_similarity >= 0.9:
-                    correct_count_value += 1
-        blank_count_value = blank_count
-
     return {
         "is_correct": is_correct,
         "score": score,
         "correct_answer": question["correct_answer"],
-        "correct_count": correct_count_value,
-        "blank_count": blank_count_value,
+        "correct_count": correct_count_value if question["type"] == "fill" else None,
+        "blank_count": blank_count if question["type"] == "fill" else None,
     }
 
 
@@ -2547,6 +2590,13 @@ def save_study_note(
     thinking = str(data.thinking or "").strip()
     if not knowledge_points and not thinking:
         raise HTTPException(status_code=400, detail="请至少填写知识点或答题思路")
+    for field_name, field_val in [("知识点", knowledge_points), ("答题思路", thinking)]:
+        if not field_val:
+            continue
+        if len(field_val) > STUDY_NOTE_MAX_LENGTH:
+            raise HTTPException(status_code=400, detail=f"{field_name}不能超过 {STUDY_NOTE_MAX_LENGTH} 字")
+        if _check_repetitive_content(field_val):
+            raise HTTPException(status_code=400, detail=f"{field_name}内容存在大量重复，请认真填写")
 
     cursor = conn.cursor()
     cursor.execute(
@@ -2870,17 +2920,27 @@ async def upload_exam(
 
 
 @app.get("/api/analysis/question/{question_id}")
-def get_question_analysis(question_id: str, conn: sqlite3.Connection = Depends(get_db)):
+def get_question_analysis(
+    question_id: str,
+    exam_filename: Optional[str] = None,
+    conn: sqlite3.Connection = Depends(get_db),
+):
     """
     获取某道题目的答题情况分析
     包括：哪些学生答了、答案是什么、是否正确、用时等
     """
     cursor = conn.cursor()
-    current_exam = get_current_exam_name(conn) or ""
+    target_exam = Path(exam_filename).name if exam_filename else get_current_exam_name(conn) or ""
 
-    # 获取题目信息
-    cursor.execute("SELECT * FROM questions WHERE id = %s", (question_id,))
+    # 获取题目信息（优先 exam_questions）
+    cursor.execute(
+        "SELECT * FROM exam_questions WHERE exam_filename = %s AND id = %s",
+        (target_exam, question_id),
+    )
     question = cursor.fetchone()
+    if not question:
+        cursor.execute("SELECT * FROM questions WHERE id = %s", (question_id,))
+        question = cursor.fetchone()
     if not question:
         raise HTTPException(status_code=404, detail="题目不存在")
 
@@ -2901,7 +2961,7 @@ def get_question_analysis(question_id: str, conn: sqlite3.Connection = Depends(g
         WHERE a.question_id = %s AND a.exam_filename = %s
         ORDER BY a.created_at DESC
         """,
-        (question_id, current_exam),
+        (question_id, target_exam),
     )
     answers = [dict(row) for row in cursor.fetchall()]
 
@@ -2939,12 +2999,13 @@ def get_question_analysis(question_id: str, conn: sqlite3.Connection = Depends(g
 @app.get("/api/analysis/student/{student_id}")
 def get_student_analysis(
     student_id: int,
+    exam_filename: Optional[str] = None,
     include_attempts: bool = True,
     conn: sqlite3.Connection = Depends(get_db),
 ):
     """获取某个学生的答题分析"""
     cursor = conn.cursor()
-    current_exam = get_current_exam_name(conn) or ""
+    target_exam = Path(exam_filename).name if exam_filename else get_current_exam_name(conn) or ""
 
     # 获取学生信息
     cursor.execute("SELECT * FROM students WHERE id = %s", (student_id,))
@@ -2973,7 +3034,7 @@ def get_student_analysis(
         FROM answers
         WHERE student_id = %s AND exam_filename = %s
         """,
-        (student_id, student_id, student_id, current_exam),
+        (student_id, student_id, student_id, target_exam),
     )
     stats = dict(cursor.fetchone())
 
@@ -2989,7 +3050,7 @@ def get_student_analysis(
             WHERE student_id = %s AND exam_filename = %s
             ORDER BY start_time ASC
             """,
-            (student_id, current_exam),
+            (student_id, target_exam),
         )
         session_rows = [dict(row) for row in cursor.fetchall()]
 
@@ -3011,7 +3072,7 @@ def get_student_analysis(
                 WHERE a.session_id = %s AND a.exam_filename = %s
                 ORDER BY a.created_at ASC
                 """,
-                (session_row["id"], current_exam),
+                (session_row["id"], target_exam),
             )
             answer_rows = [dict(row) for row in cursor.fetchall()]
 
@@ -3027,7 +3088,7 @@ def get_student_analysis(
                 {
                     "session_id": session_row["id"],
                     "attempt_no": idx,
-                    "exam_filename": session_row.get("exam_filename") or current_exam,
+                    "exam_filename": session_row.get("exam_filename") or target_exam,
                     "start_time": session_row.get("start_time"),
                     "end_time": session_row.get("end_time"),
                     "status": session_row.get("status"),
@@ -3060,7 +3121,7 @@ def get_student_analysis(
         WHERE a.student_id = %s AND a.exam_filename = %s
         ORDER BY a.created_at DESC
         """,
-        (student_id, current_exam),
+        (student_id, target_exam),
     )
     details = [dict(row) for row in cursor.fetchall()]
 
@@ -3075,6 +3136,425 @@ def get_student_analysis(
         "attempts": attempts,
         "answers": details,
     }
+
+
+@app.get("/api/student/practice-overview")
+def get_student_practice_overview(
+    student_id: int,
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    """
+    获取学生练习概览：所有试卷完成情况 + 智能推荐
+    """
+    cursor = conn.cursor()
+
+    # 1. 获取学生信息
+    cursor.execute(
+        "SELECT id, name FROM students WHERE id = %s",
+        (student_id,),
+    )
+    student = cursor.fetchone()
+    if not student:
+        raise HTTPException(status_code=404, detail="学生不存在")
+
+    student_name = student["name"]
+
+    # 2. 获取所有可用试卷列表
+    cursor.execute(
+        "SELECT DISTINCT exam_filename FROM exam_questions ORDER BY exam_filename"
+    )
+    all_exams = [row["exam_filename"] for row in cursor.fetchall()]
+
+    # 如果没有缓存的试卷，从文件列表获取
+    if not all_exams:
+        exam_files = list_exam_files()
+        all_exams = [path.name for path in exam_files]
+
+    # 3. 查询学生在每套试卷上的完成情况
+    cursor.execute(
+        """
+        SELECT
+            exam_filename,
+            MAX(total_score) as best_score,
+            start_time,
+            end_time
+        FROM sessions
+        WHERE student_id = %s AND status = 'completed' AND exam_filename != ''
+        """,
+        (student_id,),
+    )
+    # 在Python中计算统计数据（兼容SQLite和PostgreSQL）
+    raw_stats = {}
+    for row in cursor.fetchall():
+        exam = row["exam_filename"]
+        if exam not in raw_stats:
+            raw_stats[exam] = {
+                "best_score": 0,
+                "total_time_minutes": 0,
+                "attempts": 0,
+                "last_attempt_date": "",
+            }
+        stats = raw_stats[exam]
+        stats["best_score"] = max(stats["best_score"], float(row["best_score"] or 0))
+        stats["attempts"] += 1
+        
+        # 计算时间差（分钟）
+        if row["start_time"] and row["end_time"]:
+            try:
+                from datetime import datetime
+                start = row["start_time"]
+                end = row["end_time"]
+                if isinstance(start, str):
+                    start = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                if isinstance(end, str):
+                    end = datetime.fromisoformat(end.replace("Z", "+00:00"))
+                delta_minutes = (end - start).total_seconds() / 60
+                stats["total_time_minutes"] += int(delta_minutes)
+            except Exception:
+                pass
+        
+        # 更新最近尝试日期
+        if row["start_time"]:
+            start_str = str(row["start_time"])
+            if not stats["last_attempt_date"] or start_str > stats["last_attempt_date"]:
+                stats["last_attempt_date"] = start_str
+    
+    exam_stats = raw_stats
+
+    # 4. 构建试卷列表
+    completed_count = 0
+    exams = []
+
+    for exam_filename in all_exams:
+        stats = exam_stats.get(exam_filename)
+        completed = stats is not None and stats["attempts"] > 0
+
+        if completed:
+            completed_count += 1
+
+        # 获取试卷标题
+        exam_path = resolve_exam_path(exam_filename)
+        exam_name = exam_filename
+        if exam_path:
+            try:
+                data = load_exam_json(exam_path)
+                exam_name = data.get("title", exam_filename)
+            except Exception:
+                pass
+
+        exam_info = {
+            "exam_filename": exam_filename,
+            "exam_name": exam_name,
+            "completed": completed,
+            "best_score": stats["best_score"] if stats else None,
+            "max_score": 100,  # 默认满分
+            "total_time_minutes": stats["total_time_minutes"] if stats else None,
+            "attempts": stats["attempts"] if stats else 0,
+            "last_attempt_date": stats["last_attempt_date"] if stats else None,
+        }
+
+        # 计算满分（从实际题目计算）
+        cursor.execute(
+            "SELECT SUM(score) as max_score FROM exam_questions WHERE exam_filename = %s",
+            (exam_filename,),
+        )
+        max_score_row = cursor.fetchone()
+        if max_score_row and max_score_row["max_score"]:
+            exam_info["max_score"] = float(max_score_row["max_score"])
+
+        exams.append(exam_info)
+
+    # 5. 计算推荐列表
+    recommendations = []
+
+    for exam in exams:
+        priority = None
+        reason = None
+
+        if not exam["completed"]:
+            priority = 1
+            reason = "尚未完成"
+        elif exam["best_score"] < 60:
+            priority = 2
+            reason = f"得分较低（{exam['best_score']}分），建议复习"
+        elif exam["best_score"] < 80:
+            priority = 3
+            reason = f"得分中等（{exam['best_score']}分），可继续练习"
+        else:
+            priority = 4
+            reason = f"得分较高（{exam['best_score']}分），建议复习巩固"
+
+        if priority:
+            recommendations.append({
+                "exam_filename": exam["exam_filename"],
+                "exam_name": exam["exam_name"],
+                "reason": reason,
+                "priority": priority,
+                "last_attempt_date": exam.get("last_attempt_date") or "",
+            })
+
+    # 先按最后尝试日期降序排序（最近的排前面）
+    recommendations.sort(
+        key=lambda x: x.get("last_attempt_date") or "0000-00-00",
+        reverse=True
+    )
+    # 再按优先级升序排序（稳定排序，保持同优先级内的日期顺序）
+    recommendations.sort(key=lambda x: x["priority"])
+
+    return {
+        "student_name": student_name,
+        "total_exams": len(all_exams),
+        "completed_exams": completed_count,
+        "exams": exams,
+        "recommendations": recommendations,
+    }
+
+
+# ========== 题目收藏功能 ==========
+
+class FavoriteRequest(BaseModel):
+    student_id: int
+    question_id: str
+    exam_filename: str
+    question_text: str = ""
+
+
+@app.post("/api/student/favorite")
+def add_favorite(data: FavoriteRequest, conn: sqlite3.Connection = Depends(get_db)):
+    """收藏题目"""
+    cursor = conn.cursor()
+    # 验证学生存在
+    cursor.execute("SELECT id FROM students WHERE id = %s", (data.student_id,))
+    if not cursor.fetchone():
+        raise HTTPException(status_code=404, detail="学生不存在")
+    
+    # 插入收藏记录
+    cursor.execute(
+        """
+        INSERT INTO student_favorites (student_id, question_id, exam_filename, question_text)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT(student_id, question_id, exam_filename) DO NOTHING
+        """,
+        (data.student_id, data.question_id, data.exam_filename, data.question_text)
+    )
+    conn.commit()
+    return {"message": "收藏成功", "favorited": True}
+
+
+@app.delete("/api/student/favorite")
+def remove_favorite(
+    student_id: int,
+    question_id: str,
+    exam_filename: str = "",
+    conn: sqlite3.Connection = Depends(get_db)
+):
+    """取消收藏"""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        DELETE FROM student_favorites 
+        WHERE student_id = %s AND question_id = %s AND exam_filename = %s
+        """,
+        (student_id, question_id, exam_filename)
+    )
+    conn.commit()
+    return {"message": "已取消收藏", "favorited": False}
+
+
+@app.get("/api/student/favorites")
+def get_favorites(
+    student_id: int,
+    exam_filename: Optional[str] = None,
+    conn: sqlite3.Connection = Depends(get_db)
+):
+    """获取学生的收藏列表"""
+    cursor = conn.cursor()
+    
+    if exam_filename:
+        cursor.execute(
+            """
+            SELECT f.question_id, f.exam_filename, f.question_text, f.created_at
+            FROM student_favorites f
+            WHERE f.student_id = %s AND f.exam_filename = %s
+            ORDER BY f.created_at DESC
+            """,
+            (student_id, exam_filename)
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT f.question_id, f.exam_filename, f.question_text, f.created_at
+            FROM student_favorites f
+            WHERE f.student_id = %s
+            ORDER BY f.created_at DESC
+            """,
+            (student_id,)
+        )
+    
+    favorites = []
+    for row in cursor.fetchall():
+        favorites.append({
+            "question_id": row["question_id"],
+            "exam_filename": row["exam_filename"],
+            "question_text": row["question_text"],
+            "created_at": str(row["created_at"]),
+        })
+    
+    return {"favorites": favorites, "total": len(favorites)}
+
+
+@app.get("/api/student/favorite/status")
+def check_favorite_status(
+    student_id: int,
+    question_id: str,
+    exam_filename: str = "",
+    conn: sqlite3.Connection = Depends(get_db)
+):
+    """检查题目是否已收藏"""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT COUNT(*) FROM student_favorites 
+        WHERE student_id = %s AND question_id = %s AND exam_filename = %s
+        """,
+        (student_id, question_id, exam_filename)
+    )
+    count = _fetchone_value(cursor.fetchone(), 0) or 0
+    return {"favorited": count > 0}
+
+
+@app.get("/api/student/practice-questions")
+def get_practice_questions(
+    student_id: int,
+    mode: str = "full",  # full, favorites, unpracticed, incorrect
+    exam_filename: Optional[str] = None,
+    conn: sqlite3.Connection = Depends(get_db)
+):
+    """
+    获取练习题列表（支持不同模式）
+    - full: 完整试卷
+    - favorites: 收藏的题目
+    - unpracticed: 从未练习过的题目
+    - incorrect: 没有做对的题目
+    """
+    cursor = conn.cursor()
+    # 确定目标试卷文件名（优先入参，其次当前设置）
+    target_exam = Path(exam_filename).name if exam_filename else (get_current_exam_name(conn) or "")
+
+    if mode == "favorites":
+        # 收藏的题目
+        cursor.execute(
+            """
+            SELECT f.question_id, f.exam_filename, f.question_text
+            FROM student_favorites f
+            WHERE f.student_id = %s
+            ORDER BY f.created_at DESC
+            """,
+            (student_id,)
+        )
+        question_ids = [(row["question_id"], row["exam_filename"]) for row in cursor.fetchall()]
+        
+        questions = []
+        for qid, exam in question_ids:
+            # 优先从 exam_questions 获取题目详情，若缺失则回退到全局 questions 表
+            exam_name = Path(exam).name if exam else ""
+            cursor.execute(
+                "SELECT * FROM exam_questions WHERE exam_filename = %s AND id = %s",
+                (exam_name, qid)
+            )
+            row = cursor.fetchone()
+            if not row:
+                cursor.execute("SELECT * FROM questions WHERE id = %s", (qid,))
+                row = cursor.fetchone()
+            if row:
+                q = dict(row)
+                q["image"] = normalize_image_field(q.get("image"))
+                if q.get("options"):
+                    try:
+                        q["options"] = json.loads(q["options"])
+                    except Exception:
+                        q["options"] = []
+                questions.append(q)
+        return {"questions": questions, "mode": mode, "total": len(questions)}
+    
+    elif mode == "unpracticed":
+        # 从未练习过的题目
+        # 若未提供exam_filename，尝试使用当前设置的试卷
+        if not exam_filename:
+            exam_filename = target_exam
+        if not exam_filename:
+            raise HTTPException(status_code=400, detail="需要指定试卷")
+        exam_name = Path(exam_filename).name
+        cursor.execute(
+            """
+            SELECT q.id, q.type, q.question, q.score, q.explanation, q.image, q.options, q.exam_filename
+            FROM exam_questions q
+            WHERE q.exam_filename = %s
+            AND q.id NOT IN (
+                SELECT DISTINCT a.question_id 
+                FROM answers a 
+                WHERE a.student_id = %s AND a.exam_filename = %s
+            )
+            ORDER BY q.id
+            """,
+            (exam_name, student_id, exam_name)
+        )
+        rows = cursor.fetchall()
+        questions = []
+        for row in rows:
+            q = dict(row)
+            q["image"] = normalize_image_field(q.get("image"))
+            if q.get("options"):
+                try:
+                    q["options"] = json.loads(q["options"])
+                except Exception:
+                    q["options"] = []
+            questions.append(q)
+        return {"questions": questions, "mode": mode, "total": len(questions)}
+    
+    elif mode == "incorrect":
+        # 没有做对的题目（所有做过的题目中，至少有一次未做对的）
+        # 若未提供exam_filename，尝试使用当前设置的试卷
+        if not exam_filename:
+            exam_filename = target_exam
+        if not exam_filename:
+            raise HTTPException(status_code=400, detail="需要指定试卷")
+        exam_name = Path(exam_filename).name
+        cursor.execute(
+            """
+            SELECT q.id, q.type, q.question, q.score, q.explanation, q.image, q.options, q.exam_filename
+            FROM exam_questions q
+            WHERE q.exam_filename = %s
+            AND q.id IN (
+                SELECT DISTINCT a.question_id 
+                FROM answers a 
+                WHERE a.student_id = %s AND a.exam_filename = %s
+                AND a.is_correct = 0
+            )
+            ORDER BY q.id
+            """,
+            (exam_name, student_id, exam_name)
+        )
+        rows = cursor.fetchall()
+        questions = []
+        for row in rows:
+            q = dict(row)
+            q["image"] = normalize_image_field(q.get("image"))
+            if q.get("options"):
+                try:
+                    q["options"] = json.loads(q["options"])
+                except Exception:
+                    q["options"] = []
+            questions.append(q)
+        return {"questions": questions, "mode": mode, "total": len(questions)}
+    
+    else:  # mode == "full" or default
+        # 完整试卷
+        if not exam_filename:
+            raise HTTPException(status_code=400, detail="需要指定试卷")
+        
+        questions = load_questions_for_exam(conn, get_exam_mode(conn), exam_filename)
+        return {"questions": questions, "mode": mode, "total": len(questions)}
 
 
 @app.get("/api/analysis/overview")
@@ -3398,6 +3878,14 @@ def teacher_entry():
 def teacher_student_detail():
     return FileResponse(
         APP_DIR / "student_detail.html", headers={"Cache-Control": "no-store"}
+    )
+
+
+@app.get("/xx/smart-practice")
+@app.get("/xx/smart-practice/")
+def smart_practice_entry():
+    return FileResponse(
+        APP_DIR / "smart-practice.html", headers={"Cache-Control": "no-store"}
     )
 
 

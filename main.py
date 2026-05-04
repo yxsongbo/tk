@@ -593,19 +593,28 @@ def resolve_exam_path(filename: str) -> Path | None:
 
 
 def load_exam_json(exam_path: Path) -> dict:
-    """读取并校验试卷 JSON。"""
+    """读取并校验试卷 JSON（支持新旧两种格式）。"""
     try:
         with open(exam_path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"读取试卷失败: {e}") from e
 
+    # 新格式：questions 是顶级字段
     questions = data.get("questions")
-    if not isinstance(questions, list) or not questions:
-        raise HTTPException(
-            status_code=400, detail="试卷格式错误：questions 必须为非空数组"
-        )
-    return data
+    if isinstance(questions, list) and questions:
+        return data
+
+    # 旧格式：choiceQuestions + fillQuestions
+    choice_questions = data.get("choiceQuestions", [])
+    fill_questions = data.get("fillQuestions", [])
+    if isinstance(choice_questions, list) and isinstance(fill_questions, list):
+        data["questions"] = choice_questions + fill_questions
+        return data
+
+    raise HTTPException(
+        status_code=400, detail="试卷格式错误：无法找到 questions 或 choiceQuestions/fillQuestions 字段"
+    )
 
 
 def set_current_exam(conn: sqlite3.Connection, filename: str) -> None:

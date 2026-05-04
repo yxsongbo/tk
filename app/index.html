@@ -135,6 +135,10 @@
 
         .btn-handin { padding: 6px 14px; background: #f59e0b; color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
         .btn-handin:hover { background: #d97706; }
+        .btn-small { padding: 0.3rem 0.8rem; font-size: 0.8rem; }
+        .btn-favorite { background: #fff3e0; color: #f90; border: 1px solid #fcd34d; }
+        .btn-favorite.favorited { background: #fcd34d; color: white; }
+
 
         @media (min-width: 1100px) {
             .app-container { max-width: 1400px; }
@@ -276,6 +280,7 @@
         let studyNotesByQuestionText = {};
         let studyNoteDrafts = {};
         let noteLikePending = new Set();
+        let currentFavoriteStatus = false;
         let examSidebarStats = {
             online_loading: false,
             history_loading: false,
@@ -405,16 +410,30 @@
             currentSessionId = session.id;
             currentStudentId = session.student_id;
             currentExamFilename = session.exam_filename || '';
-
+            
+            // 检查练习模式
+            const practiceMode = sessionStorage.getItem('practiceMode') || 'full';
+            
             const resumeState = session.resume_state && typeof session.resume_state === 'object'
                 ? session.resume_state
                 : null;
+            
+            // 根据模式加载题目
+            if (practiceMode === 'favorites' || practiceMode === 'unpracticed' || practiceMode === 'incorrect') {
+                // 异步加载题目，先显示加载中
+                questions = [];
+                renderLoadingQuestion();
+                loadQuestionsByMode(practiceMode, currentExamFilename);
+                return; // loadQuestionsByMode 会调用 renderQuestion
+            }
+            
+            // 完整试卷模式：使用 session.question_summaries
             const summaries = Array.isArray(session.question_summaries) ? session.question_summaries : [];
             const allQuestions = summaries.map(item => ({ ...item, loaded: false, loading: false }));
             if (allQuestions.length === 0) {
                 throw new Error('暂无可用题目');
             }
-
+            
             questions = allQuestions;
             answers = {};
             draftAnswers = {};
@@ -974,7 +993,7 @@ function isFillAnswerCorrectForBlank(studentValue, blank) {
 
         document.getElementById('startBtn').addEventListener('click', async function() {
             if (isStartingPractice) return;
-
+            
             const startBtn = document.getElementById('startBtn');
             const examNumber = document.getElementById('examNumber').value.trim();
             const name = document.getElementById('studentName').value.trim();
@@ -998,11 +1017,8 @@ function isFillAnswerCorrectForBlank(studentValue, blank) {
             try {
                 isStartingPractice = true;
                 startBtn.disabled = true;
-                startBtn.textContent = '正在进入...';
-
-                if (!Array.isArray(availableExams) || availableExams.length === 0) {
-                    await loadExams();
-                }
+                startBtn.textContent = '正在登录...';
+                
                 const loginResponse = await fetch(`${API_BASE}/students/login`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -1015,27 +1031,12 @@ function isFillAnswerCorrectForBlank(studentValue, blank) {
                 if (!loginResponse.ok) {
                     throw new Error(loginResult.detail || '准考证号或姓名错误');
                 }
-                currentStudentId = loginResult.id;
-
-                const examSelect = document.getElementById('examSelect');
-                const selectedExam = examSelect ? examSelect.value : '';
-
-                const sessionResponse = await fetch(`${API_BASE}/sessions/start`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        student_id: currentStudentId,
-                        exam_filename: examMode === 'practice' ? selectedExam : undefined,
-                        override_code: overrideCode || undefined
-                    })
-                });
-                const session = await sessionResponse.json();
-                if (!sessionResponse.ok) {
-                    throw new Error(session.detail || '开始失败');
-                }
-                enterPracticeSession(session, readActiveSessionState());
+                
+                // 登录成功，跳转到智能练习页面
+                localStorage.setItem('student_id', String(loginResult.id));
+                window.location.href = `/xx/smart-practice?student_id=${loginResult.id}`;
             } catch (error) {
-                errorDiv.textContent = error.message || '开始失败，请重试';
+                errorDiv.textContent = error.message || '登录失败，请重试';
                 errorDiv.classList.remove('hidden');
             } finally {
                 isStartingPractice = false;
@@ -1347,14 +1348,56 @@ function isFillAnswerCorrectForBlank(studentValue, blank) {
             updateSubmitButtonState(question, answerData);
         }
 
+        function renderLoadingQuestion() {
+            document.getElementById('questionContainer').innerHTML = '<div class="question-card">题目加载中...</div>';
+            document.getElementById('progressText').textContent = `加载中...`;
+            document.getElementById('scoreText').textContent = `得分: ${totalScore.toFixed(1)}`;
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {
+                submitBtn.textContent = '题目加载中';
+                submitBtn.disabled = true;
+            }
+        }
+
+        async function loadQuestionsByMode(mode, examFilename) {
+            try {
+                const response = await fetch(`${API_BASE}/student/practice-questions?student_id=${currentStudentId}&mode=${mode}&exam_filename=${encodeURIComponent(examFilename || '')}`);
+                if (!response.ok) {
+                    throw new Error('加载题目失败');
+                }
+                const data = await response.json();
+                if (!data.questions || data.questions.length === 0) {
+                    document.getElementById('questionContainer').innerHTML = '<div class="question-card">该模式下暂无题目</div>';
+                    questions = [];
+                    return;
+                }
+                questions = data.questions.map(q => ({ ...q, loaded: false, loading: false }));
+                answers = {};
+                draftAnswers = {};
+                totalScore = 0;
+                
+                // 恢复之前的答题状态（如果有）
+                const storedState = readActiveSessionState();
+                if (storedState && storedState.session_id) {
+                    // 这里可以恢复之前的答题状态
+                }
+                
+                currentQuestionIndex = 0;
+                renderQuestion();
+            } catch (error) {
+                console.error('加载题目失败:', error);
+                document.getElementById('questionContainer').innerHTML = `<div class="question-card">加载失败: ${error.message}</div>`;
+            }
+        }
+
         function renderQuestion() {
             const question = questions[currentQuestionIndex];
             if (!question) return;
-
+            
             if (!question.loaded) {
                 fetchQuestionDetail(currentQuestionIndex);
                 document.getElementById('questionContainer').innerHTML = '<div class="question-card">题目加载中...</div>';
-                document.getElementById('progressText').textContent = `第 ${currentQuestionIndex+1} / ${questions.length} 题`;
+                document.getElementById('progressText').textContent = `第 ${currentQuestionIndex + 1} / ${questions.length} 题`;
                 document.getElementById('scoreText').textContent = `得分: ${totalScore.toFixed(1)}`;
                 renderQuestionNavigator();
                 document.getElementById('prevBtn').disabled = currentQuestionIndex === 0;
@@ -1364,7 +1407,9 @@ function isFillAnswerCorrectForBlank(studentValue, blank) {
                 submitBtn.disabled = true;
                 return;
             }
-
+            
+            // 检查收藏状态
+            checkFavoriteStatus(question.id);
             prefetchNextQuestion(currentQuestionIndex);
 
             const container = document.getElementById('questionContainer');
@@ -1461,7 +1506,7 @@ function isFillAnswerCorrectForBlank(studentValue, blank) {
             const questionImagesHtml = questionImages.length > 0
                 ? `<div class="question-images">${renderImages(questionImages, 'question-image', '题目图片')}</div>`
                 : '';
-            container.innerHTML = `<div class="question-card"><span class="question-number">${question.type==='choice'?'选择题':'填空题'} 第 ${currentQuestionIndex+1} 题 (${question.score}分)</span><div class="question-text">${escapeHtml(question.question)}</div>${questionImagesHtml}${answerHtml}${explanationHtml}${studyNotesHtml}</div>`;
+            container.innerHTML = `<div class="question-card"><span class="question-number">${question.type==='choice'?'选择题':'填空题'} 第 ${currentQuestionIndex+1} 题 (${question.score}分)</span><button id="favoriteBtn" class="btn-small" style="float:right;" onclick="toggleFavorite()">收藏中...</button><div class="question-text">${escapeHtml(question.question)}</div>${questionImagesHtml}${answerHtml}${explanationHtml}${studyNotesHtml}</div>`;
 
             if (currentAnswerData && currentAnswerData.submitted && examMode === 'practice') {
                 loadStudyNotesForQuestion(question);
@@ -1510,6 +1555,67 @@ function isFillAnswerCorrectForBlank(studentValue, blank) {
             currentQuestionIndex = index;
             persistActiveSessionState();
             renderQuestion();
+        }
+
+        async function checkFavoriteStatus(questionId) {
+            if (!currentStudentId || !questionId) return;
+            try {
+                const response = await fetch(`${API_BASE}/student/favorite/status?student_id=${currentStudentId}&question_id=${questionId}&exam_filename=${encodeURIComponent(currentExamFilename || '')}`);
+                const data = await response.json();
+                currentFavoriteStatus = data.favorited || false;
+                const btn = document.getElementById('favoriteBtn');
+                if (btn) {
+                    btn.textContent = currentFavoriteStatus ? '已收藏' : '收藏';
+                    btn.className = currentFavoriteStatus ? 'btn-small btn-favorite favorited' : 'btn-small btn-favorite';
+                }
+            } catch (error) {
+                console.error('检查收藏状态失败:', error);
+            }
+        }
+
+        async function toggleFavorite() {
+            if (!currentStudentId || currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) return;
+            const question = questions[currentQuestionIndex];
+            if (!question) return;
+            
+            try {
+                if (currentFavoriteStatus) {
+                    // 取消收藏
+                    const response = await fetch(`${API_BASE}/student/favorite?student_id=${currentStudentId}&question_id=${question.id}&exam_filename=${encodeURIComponent(currentExamFilename || '')}`, {
+                        method: 'DELETE'
+                    });
+                    if (response.ok) {
+                        currentFavoriteStatus = false;
+                        const btn = document.getElementById('favoriteBtn');
+                        if (btn) {
+                            btn.textContent = '收藏';
+                            btn.className = 'btn-small btn-favorite';
+                        }
+                    }
+                } else {
+                    // 添加收藏
+                    const response = await fetch(`${API_BASE}/student/favorite`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            student_id: currentStudentId,
+                            question_id: question.id,
+                            exam_filename: currentExamFilename || '',
+                            question_text: question.question || ''
+                        })
+                    });
+                    if (response.ok) {
+                        currentFavoriteStatus = true;
+                        const btn = document.getElementById('favoriteBtn');
+                        if (btn) {
+                            btn.textContent = '已收藏';
+                            btn.className = 'btn-small btn-favorite favorited';
+                        }
+                    }
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
         }
 
         function selectOption(index) {
