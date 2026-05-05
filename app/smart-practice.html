@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能练习 - 信息技术练习系统</title>
+    <style>
+        * { margin:0; padding:0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #333; }
+        .header { background: rgba(255, 255, 255, 0.95); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 1.5rem; font-weight: 600; color: #1a1a2e; }
+        .header .user-info { display: flex; align-items: center; gap: 1rem; }
+        .header .user-info span { font-size: 1rem; color: #555; }
+        .header .logout-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 0.4rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.3s; }
+        .header .logout-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        
+        /* 练习模式选择 */
+        .mode-selector { background: rgba(255,255,255,0.95); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .mode-selector h3 { font-size: 1.1rem; color: #1a1a2e; margin-bottom: 1rem; }
+        .mode-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+        .mode-btn { background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 10px; padding: 1rem; cursor: pointer; transition: all 0.3s; text-align: left; }
+        .mode-btn:hover { border-color: #667eea; background: #f0f4ff; }
+        .mode-btn.active { border-color: #667eea; background: #e8edff; }
+        .mode-btn .mode-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .mode-btn .mode-title { font-weight: 600; font-size: 0.95rem; color: #333; margin-bottom: 0.25rem; }
+        .mode-btn .mode-desc { font-size: 0.8rem; color: #666; line-height: 1.4; }
+        
+        /* 练习概览 */
+        .section { background: rgba(255,255,255,0.95); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .section-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; color: #1a1a2e; }
+        .section-title .icon { font-size: 1.5rem; }
+        .overview-stats { display: flex; gap: 2rem; align-items: center; }
+        .overview-stats .stat { text-align: center; }
+        .overview-stats .stat-number { font-size: 2rem; font-weight: 700; color: #667eea; }
+        .overview-stats .stat-label { font-size: 0.9rem; color: #666; margin-top: 0.25rem; }
+        
+        /* 推荐练习 */
+        .recommendation-card { background: #f8f9ff; border: 1px solid #e0e7ff; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s; }
+        .recommendation-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102,126,234,0.15); }
+        .recommendation-card .info { flex: 1; }
+        .recommendation-card .exam-name { font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; color: #333; }
+        .recommendation-card .reason { color: #666; font-size: 0.9rem; }
+        .recommendation-card .priority-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; margin-left: 0.5rem; }
+        .priority-1 { background: #fee; color: #c33; }
+        .priority-2 { background: #fff3e0; color: #f90; }
+        .priority-3 { background: #e3f2fd; color: #2196f3; }
+        .priority-4 { background: #e8f5e9; color: #4caf50; }
+        
+        .btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 0.6rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: all 0.3s; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+        .btn-secondary { background: #f0f0f0; color: #333; }
+        .btn-secondary:hover { background: #e0e0e0; box-shadow: none; }
+        
+        /* 收藏列表 */
+        .favorite-item { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: flex-start; }
+        .favorite-item .info { flex: 1; }
+        .favorite-item .question-text { font-size: 0.95rem; color: #333; line-height: 1.5; margin-bottom: 0.5rem; }
+        .favorite-item .exam-name { font-size: 0.8rem; color: #666; }
+        .favorite-item .actions { display: flex; gap: 0.5rem; }
+        .btn-small { padding: 0.3rem 0.8rem; font-size: 0.8rem; }
+        .btn-remove { background: #fee; color: #c33; border: 1px solid #fcc; }
+        .btn-remove:hover { background: #fdd; }
+        
+        /* 所有试卷表格 */
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th { background: #f8f9fa; padding: 0.75rem; text-align: left; font-weight: 600; font-size: 0.9rem; color: #555; border-bottom: 2px solid #e0e0e0; }
+        td { padding: 0.75rem; border-bottom: 1px solid #f0f0f0; font-size: 0.95rem; }
+        tr:hover { background: #f8f9ff; }
+        .status-completed { color: #4caf50; font-weight: 600; }
+        .status-pending { color: #ff9800; font-weight: 600; }
+        .score { font-weight: 600; }
+        
+        .loading { text-align: center; padding: 2rem; color: #999; }
+        .error { text-align: center; padding: 2rem; color: #c33; background: #fee; border-radius: 8px; }
+        
+        /* 试卷选择 */
+        .exam-select-group { margin-bottom: 1rem; }
+        .exam-select-group label { display: block; font-size: 0.9rem; color: #555; margin-bottom: 0.5rem; }
+        .exam-select { width: 100%; padding: 0.75rem; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 智能练习</h1>
+        <div class="user-info">
+            <span id="studentName">加载中...</span>
+            <button class="logout-btn" onclick="logout()">退出</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 练习模式选择 -->
+        <div class="mode-selector">
+            <h3>选择练习模式</h3>
+            <div class="mode-buttons">
+                <button class="mode-btn active" data-mode="full" onclick="selectMode('full')">
+                    <div class="mode-icon">📝</div>
+                    <div class="mode-title">完整试卷</div>
+                    <div class="mode-desc">练习完整的试卷，包含所有题目</div>
+                </button>
+                <button class="mode-btn" data-mode="favorites" onclick="selectMode('favorites')">
+                    <div class="mode-icon">⭐</div>
+                    <div class="mode-title">收藏题目</div>
+                    <div class="mode-desc">练习你收藏的题目</div>
+                </button>
+                <button class="mode-btn" data-mode="unpracticed" onclick="selectMode('unpracticed')">
+                    <div class="mode-icon">🆕</div>
+                    <div class="mode-title">未练习题目</div>
+                    <div class="mode-desc">练习从未做过的题目</div>
+                </button>
+                <button class="mode-btn" data-mode="incorrect" onclick="selectMode('incorrect')">
+                    <div class="mode-icon">❌</div>
+                    <div class="mode-title">错题练习</div>
+                    <div class="mode-desc">练习没有做对的题目</div>
+                </button>
+            </div>
+            
+            <!-- 试卷选择（仅在需要时显示） -->
+            <div id="examSelectGroup" class="exam-select-group hidden">
+                <label>选择试卷</label>
+                <select id="examSelect" class="exam-select">
+                    <option value="">请选择试卷...</option>
+                </select>
+            </div>
+            
+            <div style="margin-top: 1rem;">
+                <button class="btn" onclick="startPractice()">开始练习</button>
+            </div>
+        </div>
+
+        <!-- 练习概览 -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">📊</span>
+                <span>练习概览</span>
+            </div>
+            <div class="overview-stats" id="overviewStats">
+                <div class="stat">
+                    <div class="stat-number" id="completedExams">-</div>
+                    <div class="stat-label">已完成</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="totalExams">-</div>
+                    <div class="stat-label">总试卷数</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="completionRate">-</div>
+                    <div class="stat-label">完成率</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 收藏列表（仅在收藏模式下显示） -->
+        <div class="section hidden" id="favoritesSection">
+            <div class="section-title">
+                <span class="icon">⭐</span>
+                <span>收藏的题目</span>
+            </div>
+            <div id="favoritesList">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 推荐练习 -->
+        <div class="section" id="recommendationsSection">
+            <div class="section-title">
+                <span class="icon">🎯</span>
+                <span>推荐练习</span>
+            </div>
+            <div id="recommendationsList">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 所有试卷 -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">📋</span>
+                <span>所有试卷</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>试卷名称</th>
+                        <th>状态</th>
+                        <th>最高分</th>
+                        <th>用时(分钟)</th>
+                        <th>尝试次数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="examsTableBody">
+                    <tr><td colspan="6" class="loading">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/xx/api';
+        let studentId = null;
+        let currentMode = 'full';
+        let availableExams = [];
+
+        // 从URL参数或localStorage获取student_id
+        function getStudentId() {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('student_id');
+            if (id) {
+                localStorage.setItem('student_id', id);
+                return parseInt(id);
+            }
+            const stored = localStorage.getItem('student_id');
+            return stored ? parseInt(stored) : null;
+        }
+
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('student_id');
+            window.location.href = '/xx';
+        }
+
+        // 选择练习模式
+        function selectMode(mode) {
+            currentMode = mode;
+            // 更新按钮状态
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            
+            // 显示/隐藏试卷选择
+            const examSelectGroup = document.getElementById('examSelectGroup');
+            if (mode === 'full' || mode === 'unpracticed' || mode === 'incorrect') {
+                examSelectGroup.classList.remove('hidden');
+                loadExams();
+            } else {
+                examSelectGroup.classList.add('hidden');
+            }
+            
+            // 显示/隐藏收藏列表
+            const favoritesSection = document.getElementById('favoritesSection');
+            if (mode === 'favorites') {
+                favoritesSection.classList.remove('hidden');
+                loadFavorites();
+            } else {
+                favoritesSection.classList.add('hidden');
+            }
+        }
+
+        // 加载试卷列表
+        async function loadExams() {
+            try {
+                const response = await fetch(`${API_BASE}/exams/list`);
+                availableExams = await response.json();
+                const select = document.getElementById('examSelect');
+                select.innerHTML = '<option value="">请选择试卷...</option>';
+                availableExams.forEach(exam => {
+                    const option = document.createElement('option');
+                    option.value = exam.filename;
+                    option.textContent = `${exam.title} (${exam.question_count}题)`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('加载试卷失败:', error);
+            }
+        }
+
+        // 加载收藏列表
+        async function loadFavorites() {
+            const container = document.getElementById('favoritesList');
+            try {
+                const response = await fetch(`${API_BASE}/student/favorites?student_id=${studentId}`);
+                const data = await response.json();
+                
+                if (!data.favorites || data.favorites.length === 0) {
+                    container.innerHTML = '<div class="loading">暂无收藏的题目</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.favorites.map(fav => `
+                    <div class="favorite-item">
+                        <div class="info">
+                            <div class="question-text">${escapeHtml(fav.question_text || '题目内容')}</div>
+                            <div class="exam-name">${escapeHtml(fav.exam_filename || '')}</div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-small" onclick="practiceFromFavorites('${fav.exam_filename}')">练习</button>
+                            <button class="btn btn-small btn-remove" onclick="removeFavorite('${fav.question_id}', '${fav.exam_filename}')">取消收藏</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                container.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+            }
+        }
+
+        // 取消收藏
+        async function removeFavorite(questionId, examFilename) {
+            if (!confirm('确定取消收藏这道题吗？')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/student/favorite?student_id=${studentId}&question_id=${questionId}&exam_filename=${encodeURIComponent(examFilename)}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    alert('已取消收藏');
+                    loadFavorites();
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
+        }
+
+        // 从收藏开始练习
+        function practiceFromFavorites(examFilename) {
+            if (!examFilename) {
+                alert('请选择试卷');
+                return;
+            }
+            // 收藏模式练习，直接进入该试卷的收藏题目练习
+            startPracticeWithMode('favorites', examFilename);
+        }
+
+        // 开始练习
+        async function startPractice() {
+            if (!studentId) {
+                alert('请先登录');
+                window.location.href = '/xx';
+                return;
+            }
+            
+            let examFilename = null;
+            if (currentMode === 'full' || currentMode === 'unpracticed' || currentMode === 'incorrect') {
+                examFilename = document.getElementById('examSelect').value;
+                if (!examFilename) {
+                    alert('请选择试卷');
+                    return;
+                }
+            }
+            
+            startPracticeWithMode(currentMode, examFilename);
+        }
+
+        // 使用指定模式开始练习
+        async function startPracticeWithMode(mode, examFilename) {
+            try {
+                // 调用API开始会话
+                const sessionResponse = await fetch(`${API_BASE}/sessions/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        student_id: studentId,
+                        exam_filename: examFilename,
+                        mode: mode
+                    })
+                });
+                
+                if (!sessionResponse.ok) {
+                    const error = await sessionResponse.json();
+                    throw new Error(error.detail || '开始练习失败');
+                }
+                
+                const session = await sessionResponse.json();
+                
+                // 设置sessionStorage
+                sessionStorage.setItem('sessionId', String(session.id));
+                sessionStorage.setItem('studentId', String(studentId));
+                sessionStorage.setItem('examFilename', examFilename || '');
+                sessionStorage.setItem('practiceMode', mode);
+                
+                // 跳转到练习页面
+                window.location.href = '/xx';
+            } catch (error) {
+                alert('开始练习失败: ' + error.message);
+            }
+        }
+
+        // 加载数据
+        async function loadData() {
+            studentId = getStudentId();
+            if (!studentId) {
+                window.location.href = '/xx';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/student/practice-overview?student_id=${studentId}`);
+                if (!response.ok) {
+                    throw new Error('获取数据失败');
+                }
+                const data = await response.json();
+
+                // 更新学生姓名
+                document.getElementById('studentName').textContent = data.student_name;
+
+                // 更新概览统计
+                document.getElementById('completedExams').textContent = data.completed_exams;
+                document.getElementById('totalExams').textContent = data.total_exams;
+                const rate = data.total_exams > 0 ? Math.round(data.completed_exams / data.total_exams * 100) + '%' : '0%';
+                document.getElementById('completionRate').textContent = rate;
+
+                // 渲染推荐列表
+                renderRecommendations(data.recommendations);
+
+                // 渲染试卷列表
+                renderExamsTable(data.exams);
+
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                document.getElementById('recommendationsList').innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+                document.getElementById('examsTableBody').innerHTML = `<tr><td colspan="6" class="error">加载失败: ${error.message}</td></tr>`;
+            }
+        }
+
+        // 渲染推荐列表
+        function renderRecommendations(recommendations) {
+            const container = document.getElementById('recommendationsList');
+            
+            if (!recommendations || recommendations.length === 0) {
+                container.innerHTML = '<div class="loading">暂无推荐练习</div>';
+                return;
+            }
+
+            container.innerHTML = recommendations.map((rec, index) => `
+                <div class="recommendation-card">
+                    <div class="info">
+                        <div class="exam-name">
+                            ${rec.exam_name || rec.exam_filename}
+                            <span class="priority-badge priority-${rec.priority}">推荐${index + 1}</span>
+                        </div>
+                        <div class="reason">${rec.reason}</div>
+                    </div>
+                    <button class="btn" onclick="startPracticeWithMode('full', '${rec.exam_filename}')">开始练习</button>
+                </div>
+            `).join('');
+        }
+
+        // 渲染试卷表格
+        let displayedExamsCount = 3;
+        
+        function renderExamsTable(exams) {
+            const tbody = document.getElementById('examsTableBody');
+            
+            if (!exams || exams.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">暂无试卷</td></tr>';
+                return;
+            }
+
+            const visibleExams = exams.slice(0, displayedExamsCount);
+            tbody.innerHTML = visibleExams.map(exam => `
+                <tr>
+                    <td>${exam.exam_name || exam.exam_filename}</td>
+                    <td class="${exam.completed ? 'status-completed' : 'status-pending'}">
+                        ${exam.completed ? '✓ 已完成' : '○ 未完成'}
+                    </td>
+                    <td class="score">${exam.best_score !== null ? exam.best_score + '分' : '-'}</td>
+                    <td>${exam.total_time_minutes !== null ? exam.total_time_minutes + '分钟' : '-'}</td>
+                    <td>${exam.attempts || 0}</td>
+                    <td>
+                        <button class="btn ${exam.completed ? 'btn-secondary' : ''}" onclick="startPracticeWithMode('full', '${exam.exam_filename}')">
+                            ${exam.completed ? '再练一次' : '开始练习'}
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // 加载更多按钮
+            if (exams.length > displayedExamsCount) {
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
+                if (!loadMoreBtn) {
+                    const btn = document.createElement('button');
+                    btn.id = 'loadMoreBtn';
+                    btn.className = 'btn btn-secondary';
+                    btn.textContent = `加载更多 (还有${exams.length - displayedExamsCount}套)`;
+                    btn.onclick = function() {
+                        displayedExamsCount += 5;
+                        renderExamsTable(exams);
+                    };
+                    tbody.parentNode.appendChild(btn);
+                } else {
+                    loadMoreBtn.textContent = `加载更多 (还有${exams.length - displayedExamsCount}套)`;
+                    loadMoreBtn.style.display = exams.length > displayedExamsCount ? 'block' : 'none';
+                }
+            }
+        }
+
+        // HTML转义
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>
