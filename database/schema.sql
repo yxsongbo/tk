@@ -32,6 +32,7 @@ CREATE TABLE sessions (
     start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     end_time TIMESTAMP,
     total_score REAL DEFAULT 0,
+    exam_filename TEXT DEFAULT '',
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'abandoned')),
     FOREIGN KEY (student_id) REFERENCES students(id)
 );
@@ -45,6 +46,7 @@ CREATE TABLE answers (
     answer TEXT,                        -- 学生答案
     is_correct BOOLEAN,                 -- 是否正确
     score REAL DEFAULT 0,               -- 得分
+    exam_filename TEXT DEFAULT '',      -- 试卷文件名
     answer_time INTEGER,                -- 答题用时（秒）
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id) REFERENCES sessions(id),
